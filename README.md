@@ -28,7 +28,7 @@ Installation
 How to use
 ==========
 
-We offer a [simple guide](SimpleGuide) to easy world generation based solely on a apir of coordinates and using only openstreetmap data.
+We offer a [simple guide](SimpleGuide.md) to easy world generation based solely on a apir of coordinates and using only openstreetmap data.
 
 We also offer a [detailed guide](DetailedGuide.md) including the use of heightmaps, openstreetmap data, decorations as well as 3-D data.
 
