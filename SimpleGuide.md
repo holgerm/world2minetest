@@ -17,11 +17,13 @@ Danach liegt die fertige Welt im Minetest Verzeichnis im Ordner `worlds`. Diese 
 
 Oder ihr startet euren Minetest Client und findet die neue Welt unter dem Namen "museumsinsel".
 
-TODO Screenshot einfügen.
+<img width="833" alt="Screenshot 2023-04-06 at 19 10 40" src="https://user-images.githubusercontent.com/60585/230460582-b54b61b6-31bb-4ea6-b1a4-3e70142d3be0.png">
+
 
 Danach seid in der Minetest Welt der Museumsinsel
 
-TODO Screenshot einfügen.
+<img width="1552" alt="Screenshot 2023-04-06 at 17 33 32" src="https://user-images.githubusercontent.com/60585/230460649-e02df221-a430-431a-8533-eced2d3141da.png">
+
 
 
 ## Weitere Optionen
