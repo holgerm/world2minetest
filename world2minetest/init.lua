@@ -64,6 +64,7 @@ local SURFACE_IDS = {
     [51] = water, -- water
 
     [60] = wood, -- building_ground
+    [70] = dirt_with_grass, -- grass
 }
 
 local DECORATION_IDS = {

@@ -52,6 +52,7 @@ def update_min_max(x_coords, y_coords):
 
 
 highways = []
+waterways = []
 buildings = []
 areas = []
 barriers = []
@@ -69,6 +70,8 @@ for e in data["elements"]:
             areas.append(e)
         elif "highway" in tags:
             highways.append(e)
+        elif "waterway" in tags:
+            waterways.append(e)
         elif "building" in tags or "building:part" in tags:
             buildings.append(e)
         elif "barrier" in tags:
@@ -81,51 +84,126 @@ for e in data["elements"]:
         if tags and ("natural" in tags or "amenity" in tags or "barrier" in tags):
             nodes.append(e)
     else:
-        print(f"Ignoring element with unknown type '{t}'")
+        print(f"Ignoring element with unknown type '{t}', element: {e}")
 
 
-res_areas = []
+res_areas = {
+    "low": [],
+    "medium": [],
+    "high": []
+}
 res_buildings = []
 res_decorations = defaultdict(list)
 res_highways = []
+res_waterways = []
+
+def get_surface(area):
+    tags = area["tags"]
+    # print_element("processing area:", area)
+    surface = None
+    res_area = None
+
+    # SURFACE tag given and usable, hence we use it:
+    if "surface" in tags and tags["surface"] in SURFACES:
+        match tags["surface"]:
+            case "natural" | "building_ground":
+                return tags["surface"], "low"   
+            case "residential_landuse" | "landuse" | "leisure" | "sports_centre" | "pitch" | "amenity" | "school":
+                return tags["surface"], "medium"
+            case "grass" | "asphalt" | "paving_stones" | "fine_gravel" | "concrete" | "dirt" | "highway" | "footway" | "cycleway" | "pedestrian" | "path" | "park" | "playground" | "parking" | "village_green" | "water":
+                return tags["surface"], "high"
+            case _:
+                return tags["surface"], "low"   
+
+    if "natural" in tags:
+        if tags["natural"] == "water":
+            return "water", "high"
+        else:
+            return "natural", "low"
+    elif "amenity" in tags:
+        if tags["amenity"] in SURFACES:
+            return tags["amenity"], "medium"
+        elif tags["amenity"] == "grave_yard":
+            return "village_green", "medium"
+        else:
+            surface = "amenity" 
+            res_area = "medium"
+            # not returned yet: might be overriden by better match...
+    elif "leisure" in tags:
+        if tags["leisure"] in SURFACES:
+            return tags["leisure"], "medium"
+        elif tags["leisure"] == "swimming_pool":
+            return "water", "high"
+        else:
+            surface = "leisure"
+            res_area = "high"
+            # not returned yet: might be overriden by better match...
+    elif "landuse" in tags:
+        if tags["landuse"] == "residential":
+            return "residential_landuse", "low"  
+        elif tags["landuse"] == "reservoir":
+            return "water", "low"
+        elif tags["landuse"] == "grass" or tags["landuse"] == "meadow" or tags["landuse"] == "forest":
+            return "natural", "low"
+        elif tags["landuse"] in SURFACES:
+            return tags["landuse"], "low"
+        else:
+            surface = "landuse"
+            res_area = "low"
+            # not returned yet: might be overriden by better match...
+    return surface, "low"
 
 
 print("Processing AREAS...")
 for area in areas:
-    tags = area["tags"]
-    surface = None
-    if "surface" in tags and tags["surface"] in SURFACES:
-        surface = tags["surface"]
-    elif "natural" in tags:
-        if tags["natural"] == "water":
-            surface = "water"
-        else:
-            surface = "natural"
-    elif "amenity" in tags:
-        if tags["amenity"] in SURFACES:
-            surface = tags["amenity"]
-        else:
-            surface = "amenity"
-    elif "leisure" in tags:
-        if tags["leisure"] in SURFACES:
-            surface = tags["leisure"]
-        else:
-            surface = "leisure"
-    elif "landuse" in tags:
-        if tags["landuse"] == "residential":
-            surface = "residential_landuse"  # "residential" is also a highway type
-        elif tags["landuse"] == "reservoir":
-            surface = "water"
-        elif tags["landuse"] in SURFACES:
-            surface = tags["landuse"]
-        else:
-            surface = "landuse"
+    surface, level = get_surface(area)
+    print(f"Area {area} ==> surface: {surface}, res_area level: {level}")
+
     if surface is None:
         print_element("Ignored, could not determine surface:", area)
         continue
     x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
     update_min_max(x_coords, y_coords)
-    res_areas.append({"x": x_coords, "y": y_coords, "surface": surface})
+    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]})
+
+def add_building_height(building, tags):
+    try:
+        levels = int(tags["building:levels"])
+    except (KeyError, ValueError):
+        levels = None
+    try:
+        height = int(tags["building:height"].split(' m')[0])
+    except (KeyError, ValueError):
+        height = None
+    else:
+        height = min(height, 255)
+
+    if height is not None:
+        building["height"] = height
+        return
+
+    if levels is not None:
+        building["levels"] = levels
+        return
+
+    if "building" in tags:
+        match tags["building"]:
+            case "yes" | "bungalow":
+                building["levels"] = 1
+                return
+            case "church" | "mosque" | "synagogue" | "temple":
+                building["levels"] = 4
+                return
+            case "cathedral ":
+                building["levels"] = 5
+                return
+    if "tower:type" in tags:
+        match tags["tower:type"]:
+            case "bell_tower":
+                building["levels"] = 9
+                return
+    return
+
 
 
 print("Processing BUILDINGS...")
@@ -141,24 +219,13 @@ for building in buildings:
         else:
             print_element("Unrecognized building:material", building)
     is_building_part = "building:part" in tags
-    try:
-        levels = int(tags["building:levels"])
-    except (KeyError, ValueError):
-        levels = None
-    try:
-        height = int(float(tags["height"]))
-    except (KeyError, ValueError):
-        height = None
-    else:
-        height = min(height, 255)
     b = {"x": x_coords, "y": y_coords, "is_part": is_building_part}
-    if height is not None:
-        b["height"] = height
-    if levels is not None:
-        b["levels"] = levels
+    add_building_height(b, tags)
     if material is not None:
         b["material"] = material
     res_buildings.append(b)
+
+
 
 
 print("Processing BARRIERS...")
@@ -171,6 +238,24 @@ for barrier in barriers:
     x_coords, y_coords = node_ids_to_node_positions(barrier["nodes"])
     update_min_max(x_coords, y_coords)
     res_decorations[deco].append({"x": x_coords, "y": y_coords})
+
+
+print("Processing WATERWAYS...")
+for waterway in waterways:
+    tags = waterway["tags"]
+
+    if "waterway" in tags:
+        surface = "water"
+
+    layer = tags.get("layer", 0)
+    try:
+        layer = int(layer)
+    except ValueError:
+        layer = 0
+
+    x_coords, y_coords = node_ids_to_node_positions(waterway["nodes"])
+    update_min_max(x_coords, y_coords)
+    res_waterways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "osm_id": waterway["id"], "type": tags["waterway"]})
 
 
 print("Processing HIGHWAYS...")
@@ -203,7 +288,7 @@ for highway in highways:
 
     x_coords, y_coords = node_ids_to_node_positions(highway["nodes"])
     update_min_max(x_coords, y_coords)
-    res_highways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "type": tags["highway"]})
+    res_highways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "osm_id": highway["id"], "type": tags["highway"]})
 
 
 # NODES
@@ -232,7 +317,7 @@ for node in nodes:
     update_min_max([x], [y])
     res_decorations[deco].append({"x": x, "y": y})
 
-print(f"\nfrom {min_x},{min_y} to {max_x},{max_y} (size: {max_x-min_x+1},{max_y-min_y+1})")
+print(f"\nOutput dumped to: {args.output.name}\nfrom {min_x},{min_y} to {max_x},{max_y} (size: {max_x-min_x+1},{max_y-min_y+1})")
 
 json.dump({
     "min_x": min_x,
@@ -242,5 +327,6 @@ json.dump({
     "areas": res_areas,
     "buildings": res_buildings,
     "decorations": res_decorations,
-    "highways": res_highways
+    "highways": res_highways,
+    "waterways": res_waterways
 }, args.output, indent=2)
