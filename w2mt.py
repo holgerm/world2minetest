@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import unicodedata
+from pyproj import CRS, Transformer
 
 query_template = """[bbox: {}, {}, {}, {}]
 [out:json]
@@ -127,6 +128,7 @@ def get_args():
 	parser.add_argument('-q', '--query', type=argparse.FileType("r", encoding="utf-8"), nargs='?', const='project_query', help="File containing a query with Overpass QL, cf. 'https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL'")
 	parser.add_argument('-r', '--reuse_query', action='store_true', help="Reuse project-specific query file.")
 	parser.add_argument('-a', '--area', type=ascii, help="Decimal coordinates of two opposite corners of desired area, separated by commas: 'lat_1, long_1, lat_2, long_2'")
+	parser.add_argument('-u', '--unrestricted', action='store_true', help="Unrestrcited area, i.e. all data reaching beyond area boundary is included and stretches the area")
 	return parser.parse_args()
 
 # log to console and/or file, depending on verbose flag:
@@ -187,6 +189,14 @@ def prepare_query_file():
 	with open(query_path, 'w') as file:
 		file.write(query_string)
 
+	transform_coords = Transformer.from_crs(CRS.from_epsg(4326), CRS.from_epsg(25832)).transform
+	x, y = transform_coords(south, west)
+	minX, minY = int(round(x)), int(round(y))
+	x, y = transform_coords(north, east)
+	maxX, maxY = int(round(x)), int(round(y))
+	log(f"Area restriction corners: {minX}, {maxX} -> {minY}, {maxY}")
+	return minX, minY, maxX, maxY
+
 def perform_query():
 	# do the query and store the result in osm.json file:
 	cmd = f'wget -q -O {osm_path} --post-file={query_path} "https://overpass-api.de/api/interpreter" >> {log_file}'
@@ -206,7 +216,7 @@ def extract_features_from_osm_json():
 	else:
 		log("... done")
 
-def generate_map_from_features():
+def generate_map_from_features(minX, minY, maxX, maxY):
 	map_output_dir = os.path.join(project_path, "world2minetest")
 	if not os.path.isdir(map_output_dir):
 		os.makedirs(map_output_dir)
@@ -216,7 +226,10 @@ def generate_map_from_features():
 		log(f"Unable to create project w2mt mod dir '{map_output_dir}‘! Check rights!")
 		sys.exit("Unable to create missing project w2mt mod dir.")
 	map_output_path = os.path.join(map_output_dir, "map.dat")
-	cmd = f'python3 generate_map.py --features={feature_path} --output={map_output_path} --createimg >> {log_file}'
+	if args.unrestricted:
+		cmd = f'python3 generate_map.py --features {feature_path} --output {map_output_path} --createimg >> {log_file}'
+	else:
+		cmd = f'python3 generate_map.py --features {feature_path} --minx {minX} --maxx {maxX} --miny {minY} --maxy {maxY} --output {map_output_path} --createimg >> {log_file}'
 	log(f"Generating map using this command: '{cmd}' ...")
 	error = os.system(cmd)
 	if error:
@@ -303,10 +316,10 @@ feature_file = "features_osm.json"
 feature_path = os.path.join(project_path, feature_file)
 
 check_project_dir()
-prepare_query_file()
+minX, minY, maxX, maxY = prepare_query_file()
 perform_query()
 extract_features_from_osm_json()
-generate_map_from_features()
+generate_map_from_features(minX, minY, maxX, maxY)
 if os.environ["MINETEST_GAME_PATH"]:
 	copy_mod_in_project_dir()
 	define_world_for_project()

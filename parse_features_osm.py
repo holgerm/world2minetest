@@ -6,21 +6,22 @@ from pyproj import CRS, Transformer
 
 from _util import SURFACES, DECORATIONS
 
+
+
 parser = argparse.ArgumentParser(description="Parse OSM data")
 parser.add_argument("file", type=argparse.FileType("r", encoding="utf-8"), help="GeoJSON file with OSM data")
 parser.add_argument("--output", "-o", type=argparse.FileType("w"), help="Output file. Defaults to parsed_data/features_osm.json", default="./parsed_data/features_osm.json")
 
 args = parser.parse_args()
 
-# transform EPSG:4326 to EPSG:25832
+
+def print_element(msg, e):
+    print(msg, f"{e['id']} {e['type']}[{','.join(k+'='+v for k,v in e.get('tags', {}).items())}]")
+
 transform_coords = Transformer.from_crs(CRS.from_epsg(4326), CRS.from_epsg(25832)).transform
 def get_nodepos(lat, lon):
     x, y = transform_coords(lat, lon)
     return int(round(x)), int(round(y))
-
-
-def print_element(msg, e):
-    print(msg, f"{e['id']} {e['type']}[{','.join(k+'='+v for k,v in e.get('tags', {}).items())}]")
 
 
 node_id_to_blockpos = {}

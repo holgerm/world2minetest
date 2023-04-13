@@ -175,6 +175,7 @@ load_map_file()
 
 local vdata = {}
 local function generate(vm, emin, emax, minp, maxp)
+    minetest.log("[w2mt] generate(vm:" .. vm .. ",emin:" .. emin .. ",emax:" .. emax .. ",minp:" .. minp.. ",maxp:" .. maxp)
     vm:get_data(vdata)
     local va = VoxelArea:new{MinEdge = emin, MaxEdge = emax}
     local schematics_to_place = {}
@@ -274,7 +275,6 @@ end
 
 
 minetest.register_on_generated(function(minp, maxp, blockseed)
-    minetest.log("[w2mt] Generating " .. minetest.pos_to_string(minp) .. " to " .. minetest.pos_to_string(maxp))
     local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
     generate(vm, emin, emax, minp, maxp)
 end)
@@ -324,7 +324,6 @@ minetest.register_chatcommand("w2mt:generateall", {
             start = 1
         end
         local end_ = start + 499
-        minetest.log("[w2mt] Generating map from " .. start .. " to " .. end_)
         while x+79 <= max_x do
             local z = min_z
             while z+79 <= max_z do
@@ -332,7 +331,6 @@ minetest.register_chatcommand("w2mt:generateall", {
                 if count >= start and count <= end_ then
                     local minp = {x=x, y=floor_height-10, z=z}
                     local maxp = {x=x+79, y=minp.y+280, z=z+79}
-                    minetest.log("[w2mt] Generating " .. count .. " " .. minetest.pos_to_string(minp) .. " to " .. minetest.pos_to_string(maxp))
                     vm = minetest.get_voxel_manip(minp, maxp)
                     local emin, emax = vm:read_from_map(minp, maxp)
                     generate(vm, emin, emax, minp, maxp)
