@@ -119,26 +119,25 @@ for file in args.features or []:
     max_y = max_y if max_y is not None else data["max_y"]
     print(f'minX: {min_x}, maxX: {max_x}, minY: {min_y}, maxY: {max_y}')
     for feature in features.keys():
-        match feature:
-            case "highways" | "waterways" | "buildings":
-                print(f'Found feature: {feature}')
-                if feature in data and data[feature]:
-                    features[feature] = data[feature]
-            case "decorations":
-                if "decorations" in data and data["decorations"]:
-                    for key, value in data["decorations"].items():
-                        if value:
-                            features["decorations"][key] = value
-            case "areas":
-                if "low" in data["areas"] and data["areas"]["low"]:
-                    areas_low.extend(data["areas"]["low"])
-                    print(f"We got #{len(areas_low)} low areas.")
-                if "medium" in data["areas"] and data["areas"]["medium"]:
-                    areas_medium.extend(data["areas"]["medium"])
-                    print(f"We got #{len(areas_medium)} medium areas.")
-                if "high" in data["areas"] and data["areas"]["high"]:
-                    areas_high.extend(data["areas"]["high"])
-                    print(f"We got #{len(areas_high)} high areas.")
+        if feature in ["highways", "waterways", "buildings"]:
+            print(f'Found feature: {feature}')
+            if feature in data and data[feature]:
+                features[feature] = data[feature]
+        elif feature in ["decorations"]:
+            if "decorations" in data and data["decorations"]:
+                for key, value in data["decorations"].items():
+                    if value:
+                        features["decorations"][key] = value
+        elif feature in ["areas"]:
+            if "low" in data["areas"] and data["areas"]["low"]:
+                areas_low.extend(data["areas"]["low"])
+                print(f"We got #{len(areas_low)} low areas.")
+            if "medium" in data["areas"] and data["areas"]["medium"]:
+                areas_medium.extend(data["areas"]["medium"])
+                print(f"We got #{len(areas_medium)} medium areas.")
+            if "high" in data["areas"] and data["areas"]["high"]:
+                areas_high.extend(data["areas"]["high"])
+                print(f"We got #{len(areas_high)} high areas.")
 
 
 size = (max_x-min_x+1, max_y-min_y+1)

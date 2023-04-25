@@ -106,15 +106,14 @@ def get_surface(area):
 
     # SURFACE tag given and usable, hence we use it:
     if "surface" in tags and tags["surface"] in SURFACES:
-        match tags["surface"]:
-            case "natural" | "building_ground":
-                return tags["surface"], "low"   
-            case "residential_landuse" | "landuse" | "leisure" | "sports_centre" | "pitch" | "amenity" | "school":
-                return tags["surface"], "medium"
-            case "grass" | "asphalt" | "paving_stones" | "fine_gravel" | "concrete" | "dirt" | "highway" | "footway" | "cycleway" | "pedestrian" | "path" | "park" | "playground" | "parking" | "village_green" | "water":
-                return tags["surface"], "high"
-            case _:
-                return tags["surface"], "low"   
+        if tags["surface"] in ["natural", "building_ground"] :
+            return tags["surface"], "low"   
+        elif tags["surface"] in ["residential_landuse", "landuse", "leisure", "sports_centre", "pitch", "amenity", "school"]:
+            return tags["surface"], "medium"
+        elif tags["surface"] in ["grass", "asphalt", "paving_stones", "fine_gravel", "concrete", "dirt", "highway", "footway", "cycleway", "pedestrian", "path", "park", "playground", "parking", "village_green", "water"]:
+            return tags["surface"], "high"
+        else:
+            return tags["surface"], "low"   
 
     if "natural" in tags:
         if tags["natural"] == "water":
@@ -188,21 +187,19 @@ def add_building_height(building, tags):
         return
 
     if "building" in tags:
-        match tags["building"]:
-            case "yes" | "bungalow":
-                building["levels"] = 1
-                return
-            case "church" | "mosque" | "synagogue" | "temple":
-                building["levels"] = 4
-                return
-            case "cathedral ":
-                building["levels"] = 5
-                return
+        if tags["building"] in ["yes", "bungalow"]:
+            building["levels"] = 1
+            return
+        elif tags["building"] in ["church", "mosque", "synagogue", "temple"]:
+            building["levels"] = 4
+            return
+        elif tags["building"] in ["cathedral"]:
+            building["levels"] = 5
+            return
     if "tower:type" in tags:
-        match tags["tower:type"]:
-            case "bell_tower":
-                building["levels"] = 9
-                return
+        if tags["tower:type"] in ["bell_tower"]:
+            building["levels"] = 9
+            return
     return
 
 
