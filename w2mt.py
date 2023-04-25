@@ -3,6 +3,11 @@ import datetime
 import os
 import re
 import sys
+#import yaml
+
+#print(f"SYS:MOULES: {sys.modules}")
+#print("SYS:MOULES:" + yaml.dump(sys.modules, allow_unicode=True, default_flow_style=False))
+
 import unicodedata
 from pyproj import CRS, Transformer
 
@@ -24,7 +29,7 @@ mod_storage_backend = sqlite3
 auth_backend = sqlite3
 backend = {}
 player_backend = sqlite3
-gameid = antigrief
+gameid = {}
 world_name = {}
 server_announce = false
 
@@ -89,6 +94,7 @@ load_mod_homedecor_foyer = true
 
 load_mod_morelights = true
 load_mod_morebricks = true
+load_mod_moreblocks = true
 load_mod_pickblock = true
 load_mod_colordcement = true
 load_mod_colored_concrete = true
@@ -123,6 +129,7 @@ def get_args():
 	parser.add_argument('-p', '--project', help="Project name")
 	parser.add_argument('-w', '--worldname', help="World name used in world.mt file")
 	parser.add_argument('-d', '--minetest_dir', help="Minetest runtime directory")
+	parser.add_argument('-g', '--gameid', default="minetest", help="Game Id (default: minetest)")
 	parser.add_argument('-b', '--backend', default="sqlite3", help="BackEnd Database (sqlite3, leveldb)")
 	parser.add_argument('-v', '--verbose', action='store_true', help="Log to console addionally to logfile.")
 	parser.add_argument('-q', '--query', type=argparse.FileType("r", encoding="utf-8"), nargs='?', const='project_query', help="File containing a query with Overpass QL, cf. 'https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL'")
@@ -270,7 +277,7 @@ def copy_mod_in_project_dir():
 
 def define_world_for_project():
 	# define world for this project:
-	world_mt_string = world_mt_template.format(args.backend, args.worldname)
+	world_mt_string = world_mt_template.format(args.backend, args.gameid, args.worldname)
 	# Write the file:
 	world_file = os.path.join(project_path, "world.mt").replace("\"", "")
 	with open(world_file, 'w') as file:
