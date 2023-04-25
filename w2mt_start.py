@@ -28,7 +28,15 @@ mapdat_source = os.path.join(args.minetest_dir, "worlds", args.project, "world2m
 if not os.path.isfile(mapdat_source):
 	print(f'Could not find w2mt map file at {mapdat_source}. Please provide valid project name, i.e. world directory.')
 	sys.exit('Hence we cannot start the server.')
-mapdat_target = os.path.join(args.minetest_dir, "mods", "world2minetest", "map.dat")
+mapdat_target_dir = os.path.join(args.minetest_dir, "mods", "world2minetest")
+if not os.path.isdir(mapdat_target_dir):
+	os.makedirs(mapdat_target_dir)
+	if os.path.isdir(mapdat_target_dir):
+		log("Directory for world2minetest mod in minetest home did not exist, hence we created it.")
+	else:
+		log("Failed to create directory for world2minetest mod in minetest home.")
+		return
+mapdat_target = os.path.join(mapdat_target_dir, "map.dat")
 cmd = f'cp {mapdat_source} {mapdat_target}'
 error = os.system(cmd)
 if error:
