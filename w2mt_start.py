@@ -38,6 +38,8 @@ if not os.path.isdir(mapdat_target_dir):
 		sys.exit(f'Failed to create directory for world2minetest mod in minetest home, hence we cannot start minetest server.')
 
 mapdat_target = os.path.join(mapdat_target_dir, "map.dat")
+if os.path.exists(mapdat_target):
+	os.remove(mapdat_target)
 cmd = f'cp {mapdat_source} {mapdat_target}'
 error = os.system(cmd)
 if error:
