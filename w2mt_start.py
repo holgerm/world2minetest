@@ -32,9 +32,9 @@ mapdat_target_dir = os.path.join(args.minetest_dir, "mods", "world2minetest")
 if not os.path.isdir(mapdat_target_dir):
 	os.makedirs(mapdat_target_dir)
 	if os.path.isdir(mapdat_target_dir):
-		log("Directory for world2minetest mod in minetest home did not exist, hence we created it.")
+		print("Directory for world2minetest mod in minetest home did not exist, hence we created it.")
 	else:
-		log("Failed to create directory for world2minetest mod in minetest home.")
+		print("Failed to create directory for world2minetest mod in minetest home.")
 		sys.exit(f'Failed to create directory for world2minetest mod in minetest home, hence we cannot start minetest server.')
 
 mapdat_target = os.path.join(mapdat_target_dir, "map.dat")
