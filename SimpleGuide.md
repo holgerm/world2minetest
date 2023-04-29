@@ -38,6 +38,7 @@ Danach seid in der Minetest Welt der Museumsinsel
 - `-w` oder `--worldname` gibt den Namen der Welt an, der sich damit von dem Ordnernamen (oder hier Projektnamen genannt) unterscheiden kann. Dieser Name wird in die `world.mt` Datei eingebaut und steht auch im Client in der Liste der Welten. Wenn ihr ihn weglasst, wird der Projektname auch als Weltname (Ordnername) verwendet.
 - `-d` oder `--minetest_dir` gibt den Pfad zum Homeverzeichnis eurer Minetest Installation an. Wenn ihr die Umgebungsvariable "$MINETEST_GAME_PATH" mit dem Pfad definiert habt, könnt ihr diese Option weglassen.
 - `-v` oder `--verbose`: damit könnt ihr einige Infos zu den Schritten, die das Skript durchführt auf der Konsole angezeigt bekommen.
+- `-m` oder `--minimap`: dann wird eine Minimap generiert, die jeden Block mit einem Pixel farbig darstellt. Die minimap.png liegt im Weltordner unter `world2minetest`.
 - `-r` oder `--reuse_query` verwendet die Anfragedatei, die schon im Projektordner liegt.
 - `-q` oder `--query` verwendet die eigene Anfragedatei statt der Koordinaten. Lasst dann die Optionen `-r` sowie `-a` oder `--area` weg. Die Anfragedatei müsst oihr in der [Overpass Query Language](https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL) schreiben und den Dateinamen hier als Argumentwert angeben.
 - `-b` oder `--backend` kann die Werte `sqlite` oder `leveldb` als Wert bekommen. Damit könnt ihr das Datenbank Backend für die Weltdaten festlegen. Default ist `sqlite`.
