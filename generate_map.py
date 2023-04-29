@@ -8,7 +8,7 @@ import numpy as np
 import skimage.draw
 from tqdm import trange
 
-from _util import to_bytes, from_bytes, SURFACES, DECORATIONS
+from _util import to_bytes, from_bytes, SURFACES, DECORATIONS, SURFACE_COLORS
 
 
 HIGHWAY_WIDTHS = {
@@ -66,7 +66,7 @@ parser.add_argument("--miny", type=int, help="Minimum EPSG:25832 y coordinate (y
 parser.add_argument("--maxy", type=int, help="Maximum EPSG:25832 y coordinate (y is z in Minetest)", default=None)
 parser.add_argument("--noheightreduction", action="store_true", help="Do not subtract the smallest height from every heightmap value")
 parser.add_argument("--flat", action="store_true", help="If a --heightmap is specified, make the world flat, but subtract the heightmap value from each building coordinate")
-parser.add_argument("--createimg", action="store_true", help="Create a .png visualization of every layer")
+parser.add_argument("--minimap", action="store_true", help="Create a minimap.png visualization of the world's surface in colors.")
 parser.add_argument("--verbose", "-v", action="store_true", help="More debug info")
 parser.add_argument("--output", "-o", type=ascii, help="output path for map.dat file which is part of the w2mt mod", default="world2minetest/map.dat")
 
@@ -201,8 +201,8 @@ for area_level in (areas_low, areas_medium, areas_high):
             continue
         surface = area["surface"]
         xx, yy = skimage.draw.polygon(x, y)
-        a[yy, xx, 1] = SURFACES[surface]
-        # print(f'SETTING SURFACE to {SURFACES[surface]} on {yy} x {xx}')
+        a[yy, xx, 1] = SURFACES[surface][0]
+        # print(f'SETTING SURFACE to {SURFACES[surface][0]} on {yy} x {xx}')
         if surface in ("water", "pitch", "playground", "sports_centre", "parking"):
             assert 0 <= int(round(a[yy, xx, 0].mean())) <= 255
             a[yy, xx, 0] = int(round(a[yy, xx, 0].mean()))  # flatten area
@@ -269,8 +269,8 @@ if args.buildings:
                         if not args.flat:
                             assert 0 <= z <= 255
                             a[y, x, 0] = z
-                        a[y, x, 1] = SURFACES["building_ground"]
-                        # print(f'SETTING SURFACE to {SURFACES["building_ground"]} on {yy} x {xx}')
+                        a[y, x, 1] = SURFACES["building_ground"][0]
+                        # print(f'SETTING SURFACE to {SURFACES["building_ground"][0]} on {yy} x {xx}')
                     else:
                         if z > 0:
                             if a[y, x, 2] >= 128:
@@ -307,7 +307,7 @@ for waterway in features["waterways"]:
     x_coords, y_coords = shift_coords(waterway["x"], waterway["y"])
     #print(f'x_coords: {x_coords}')
     surface = waterway["surface"]
-    surface_id = SURFACES[surface]
+    surface_id = SURFACES[surface][0]
     #print(f'surface: {surface} -> surface-id: {surface_id}')
     layer = waterway.get("layer", 0)
     #print(f'layer: {layer}')
@@ -376,7 +376,7 @@ for waterway in features["waterways"]:
 for highway in features["highways"]:
     x_coords, y_coords = shift_coords(highway["x"], highway["y"])
     surface = highway["surface"]
-    surface_id = SURFACES[surface]
+    surface_id = SURFACES[surface][0]
     layer = highway.get("layer", 0)
     width = HIGHWAY_WIDTHS.get(highway["type"], 3)
     height = -layer*3 if layer < 0 else 0
@@ -459,8 +459,8 @@ for deco, decorations in features["decorations"].items():
             a[y, x, 2] = id_
         if deco in ("tree", "leaf_tree", "conifer", "bush"):
             # place dirt below tree
-            a[y, x, 1] = SURFACES["dirt"]
-            #print(f'SETTING SURFACE to {SURFACES["dirt"]} on {yy} x {xx}')
+            a[y, x, 1] = SURFACES["dirt"][0]
+            #print(f'SETTING SURFACE to {SURFACES["dirt"][0]} on {yy} x {xx}')
 
 
 offset_x = args.offsetx-min_x if args.offsetx is not None else round((max_x - min_x) / 2)
@@ -521,7 +521,7 @@ for i in range(len(a)):
     for j in range(len(a[i])):
         if a[i][j][1] != 0:
             surfaceNr[str(a[i][j][1])] = surfaceNr.get(str(a[i][j][1]), 0)+ 1
-inverseSurfaceMap = {v: k for k, v in SURFACES.items()}
+inverseSurfaceMap = {v[0]: k for k, v in SURFACES.items()}
 print("Surface analysis in a:")
 for surf in inverseSurfaceMap:
     nr = surfaceNr.get(str(surf), 0)
@@ -541,53 +541,32 @@ with open(str(args.output), "wb") as f:
     f.write(to_bytes(a.shape[1], 2))
     f.write(to_bytes(a.shape[0], 2))
 
-    # # Print the first 1000 Surface ids before compression:
-    # a_flat = a.flatten()
-
-    # i = 0
-    # while a_flat[i] == 0 or a_flat[i] == 50:
-    #     i += 1
-    # print(f'First intereseting content in A: {a_flat[i]} at index {i}')
-
-    # countA = min(i + 2 + (4*199), len(a_flat) -1)
-    # with np.printoptions(threshold=np.inf):
-    #     print(f'Next bytes of a_flat:\n{a_flat[i-1:countA]}')
-
     a_uncompressed = a.tobytes()
     a_unbyted = np.frombuffer(a_uncompressed, dtype = np.uint8)
-    # print(f'First {countA} bytes of A before compression:\n{a_uncompressed[0:countA - 1]}')
     a_compressed = zlib.compress(a_uncompressed, 9)
-    # a_decompressed = zlib.decompress(a_compressed)
-    # a_decomp_unbyted = np.frombuffer(a_decompressed, dtype = np.uint8)
-    # # print(f'First {countA} bytes of A after compression:\n{a_decompressed[0:countA - 1]}')
-    # print(f'lengths: a_flat: {len(a_flat)} - a_uncompressed: {len(a_uncompressed)} - a_compressed: {len(a_compressed)} - a_decompressed: {len(a_decompressed)}')
-    # # with np.printoptions(threshold=np.inf):
-    # #     print(f'Next bytes of a_uncompressed:\n{a_uncompressed[i-1:countA]}')
-    # #     print(f'Next bytes of a_unbyted:\n{a_unbyted[i-1:countA]}')
-    # #     print(f'Next bytes of a_decomp_unbyted:\n{a_decomp_unbyted[i-1:countA]}')
-    # print("Surface analysis in a_decomp_unbyted:")
-    # surfaceNr2 = {}
-    # for sur in a_decomp_unbyted[1::4]:
-    #     surfaceNr2[str(sur)] = surfaceNr2.get(str(sur), 0)+ 1
-    # for surf in inverseSurfaceMap:
-    #     nr = surfaceNr2.get(str(surf), 0)
-    #     print('{} ({}): {:>12}'.format(inverseSurfaceMap.get(surf), surf, nr))
 
     f.write(to_bytes(len(a_compressed), 4))
     f.write(a_compressed)
     f.write(to_bytes(len(changed_blocks), 4))
     f.write(changed_blocks)
 
-if args.createimg:
-    import imageio
+    
+import imageio
 
-for i in range(3):
+for i in [0,1,2]:
     layer = a[::-1,:,i]
-    name = "layer" + ["0_height", "1_surface", "2_deco"][i]
+    name = ["map_height", "map_surface", "map_decorations"][i]
     m = max(layer.max(), 1)
-    print(name, "max value:", m)
-    if args.createimg:
-        img_path = os.path.join(os.path.dirname(args.output), f"{name}.png")
-        imageio.imwrite(img_path, layer*int(255/m))
 
+    img_path = os.path.join(os.path.dirname(args.output), f"{name}.png")
+    imageio.imwrite(img_path, layer*int(255/m))
+
+if args.minimap:
+    for i in range(a.shape[0]):
+      for j in range(a.shape[1]):
+        a[i][j] = SURFACE_COLORS[a[i][j][1]]
+
+    img_path = os.path.join(os.path.dirname(args.output), f"minimap.png")
+    invertedArray = a[::-1,:,:]
+    imageio.imwrite(img_path, invertedArray)
 

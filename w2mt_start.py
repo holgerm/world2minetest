@@ -13,7 +13,6 @@ if not args.project:
 	sys.exit("Cannot start minetest server without world directory name.")
 
 if not args.worldname:
-	print(f"No argument worldname given, hence we will use the project name {args.project} as worldname.")
 	args.worldname = args.project
 
 if not args.minetest_dir:

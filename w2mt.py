@@ -132,6 +132,7 @@ def get_args():
 	parser.add_argument('-g', '--gameid', default="minetest", help="Game Id (default: minetest)")
 	parser.add_argument('-b', '--backend', default="sqlite3", help="BackEnd Database (sqlite3, leveldb)")
 	parser.add_argument('-v', '--verbose', action='store_true', help="Log to console addionally to logfile.")
+	parser.add_argument('-m', '--minimap', action='store_true', help="Create a minimap.png showing one rgb pixel per block surface of the generated world.")
 	parser.add_argument('-q', '--query', type=argparse.FileType("r", encoding="utf-8"), nargs='?', const='project_query', help="File containing a query with Overpass QL, cf. 'https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL'")
 	parser.add_argument('-r', '--reuse_query', action='store_true', help="Reuse project-specific query file.")
 	parser.add_argument('-a', '--area', type=ascii, help="Decimal coordinates of two opposite corners of desired area, separated by commas: 'lat_1, long_1, lat_2, long_2'")
@@ -233,10 +234,12 @@ def generate_map_from_features(minX, minY, maxX, maxY):
 		log(f"Unable to create project w2mt mod dir '{map_output_dir}‘! Check rights!")
 		sys.exit("Unable to create missing project w2mt mod dir.")
 	map_output_path = os.path.join(map_output_dir, "map.dat")
-	if args.unrestricted:
-		cmd = f'python3 generate_map.py --features {feature_path} --output {map_output_path} --createimg >> {log_file}'
-	else:
-		cmd = f'python3 generate_map.py --features {feature_path} --minx {minX} --maxx {maxX} --miny {minY} --maxy {maxY} --output {map_output_path} --createimg >> {log_file}'
+	cmd = f'python3 generate_map.py --features {feature_path} --output {map_output_path}'
+	if not args.unrestricted:
+		cmd += f' --minx {minX} --maxx {maxX} --miny {minY} --maxy {maxY}'
+	if args.minimap:
+		cmd += ' --minimap'
+	cmd += f' >> {log_file}'
 	log(f"Generating map using this command: '{cmd}' ...")
 	error = os.system(cmd)
 	if error:
