@@ -175,22 +175,33 @@ else:
     a[:, :, 0] = FLAT_HEIGHT  # everywhere the same height
 
 
+def restrict_x_y(x, y):
+    x = x-min_x
+    y = y-min_y
+
+    if x < 0:
+        x = 0
+    elif a.shape[1] - 1 < x:
+        x = a.shape[1] - 1 
+    if y < 0:
+        y = 0
+    elif a.shape[0] - 1 < y:
+        y = a.shape[0] - 1 
+
+    return x, y
+
 # FEATURES
 def shift_coords(x_coords, y_coords):
     if type(x_coords) is list:
         x_res = []
         y_res = []
         for x, y in zip(x_coords, y_coords):
-            if min_x <= x <= max_x and min_y <= y <= max_y:
-                x = x-min_x
-                y = y-min_y
-                x_res.append(x)
-                y_res.append(y)
+            x, y = restrict_x_y(x,y)
+            x_res.append(x)
+            y_res.append(y)
         return x_res, y_res
     x, y = x_coords, y_coords
-    if min_x <= x <= max_x and min_y <= y <= max_y:
-        return x-min_x, y-min_y
-    return None, None
+    return restrict_x_y(x,y)
 
 
 for area_level in (areas_low, areas_medium, areas_high):

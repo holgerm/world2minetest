@@ -18,6 +18,7 @@ query_template = """[bbox: {}, {}, {}, {}]
 (
 	way;
 	node;
+	relation;
 );
 out body;
 >;

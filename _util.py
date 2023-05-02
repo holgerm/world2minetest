@@ -84,3 +84,38 @@ DECORATIONS = {
     "gate": 34,
     "hedge": 35
 }
+
+
+
+##### RELATIONS: ############
+
+tag_dict_area = {
+    "natural": { "water", },
+    "landuse": { "forest", "meadow", },
+    "surface": { "grass", },
+    "leisure": { "park", },
+}
+
+area_tags = tag_dict_area.keys()
+
+def is_area_relation(tag_name, tag_value):
+    for tag in area_tags:
+        values = tag_dict_area.get(tag_name)
+        if values and tag_value in values:
+            return True
+    return False
+
+
+tag_dict_building = {
+    "building": { "transportation", },
+}
+
+building_tags = tag_dict_building.keys()
+
+def is_building_relation(tag_name, tag_value):
+    for tag in building_tags:
+        values = tag_dict_building.get(tag_name)
+        if values and tag_value in values:
+            return True
+    return False
+

@@ -7,16 +7,21 @@ from pyproj import CRS, Transformer
 from _util import SURFACES, DECORATIONS
 
 
-
 parser = argparse.ArgumentParser(description="Parse OSM data")
 parser.add_argument("file", type=argparse.FileType("r", encoding="utf-8"), help="GeoJSON file with OSM data")
 parser.add_argument("--output", "-o", type=argparse.FileType("w"), help="Output file. Defaults to parsed_data/features_osm.json", default="./parsed_data/features_osm.json")
 
 args = parser.parse_args()
 
+def find_element(id):
+    for e in data["elements"]:
+        if e.get("id") == id:
+            return e
+
+
 
 def print_element(msg, e):
-    print(msg, f"{e['id']} {e['type']}[{','.join(k+'='+v for k,v in e.get('tags', {}).items())}]")
+    print(msg, f"{e.get('id', 0)} {e.get('type', 'undefined')}[{','.join(k+'='+v for k,v in e.get('tags', {}).items())}]")
 
 transform_coords = Transformer.from_crs(CRS.from_epsg(4326), CRS.from_epsg(25832)).transform
 def get_nodepos(lat, lon):
@@ -51,53 +56,6 @@ def update_min_max(x_coords, y_coords):
     min_y = min(y_coords) if min_y is None else min(min_y, *y_coords)
     max_y = max(y_coords) if max_y is None else max(max_y, *y_coords)
 
-
-highways = []
-waterways = []
-buildings = []
-areas = []
-barriers = []
-nodes = []
-
-# sort elements by type (highway, building, area or node)
-for e in data["elements"]:
-    t = e["type"]
-    tags = e.get("tags")
-    if t == "way":
-        if not tags:
-            print_element("Ignored, missing tags:", e)
-            continue
-        if "area" in tags:
-            areas.append(e)
-        elif "highway" in tags:
-            highways.append(e)
-        elif "waterway" in tags:
-            waterways.append(e)
-        elif "building" in tags or "building:part" in tags:
-            buildings.append(e)
-        elif "barrier" in tags:
-            barriers.append(e)
-        else:
-            areas.append(e)
-    elif t == "node":
-        blockpos = get_nodepos(e["lat"], e["lon"])
-        node_id_to_blockpos[e["id"]] = blockpos
-        if tags and ("natural" in tags or "amenity" in tags or "barrier" in tags):
-            nodes.append(e)
-    else:
-        print(f"Ignoring element with unknown type '{t}', element: {e}")
-
-
-res_areas = {
-    "low": [],
-    "medium": [],
-    "high": []
-}
-res_buildings = []
-res_decorations = defaultdict(list)
-res_highways = []
-res_waterways = []
-
 def get_surface(area):
     tags = area["tags"]
     # print_element("processing area:", area)
@@ -117,7 +75,7 @@ def get_surface(area):
 
     if "natural" in tags:
         if tags["natural"] == "water":
-            return "water", "high"
+            return "water", "medium"
         else:
             return "natural", "low"
     elif "amenity" in tags:
@@ -152,19 +110,6 @@ def get_surface(area):
             res_area = "low"
             # not returned yet: might be overriden by better match...
     return surface, "low"
-
-
-print("Processing AREAS...")
-for area in areas:
-    surface, level = get_surface(area)
-    print(f"Area {area} ==> surface: {surface}, res_area level: {level}")
-
-    if surface is None:
-        print_element("Ignored, could not determine surface:", area)
-        continue
-    x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
-    update_min_max(x_coords, y_coords)
-    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]})
 
 def add_building_height(building, tags):
     try:
@@ -202,7 +147,122 @@ def add_building_height(building, tags):
             return
     return
 
+def outer_element_nodes_of_relation(element):
+    outerAreas = []
+    outerAreaNodes = []
+    for member in element.get("members"):
+        if member.get("type") == "way" and member.get("role") == "outer":
+            way = find_element(member.get('ref'))
+            nodes = way.get('nodes')
+            if nodes != None:
+                if len(outerAreaNodes) == 0:
+                    outerAreaNodes = nodes.copy()
+                    print(f"AAAAA outerArea started: #{len(outerAreaNodes)}")
+                elif nodes[-1] == outerAreaNodes[0]:
+                    nodes.pop(-1)
+                    nodesLen = len(nodes)
+                    nodes.extend(outerAreaNodes)
+                    outerAreaNodes = nodes.copy() # TODO OPTIMIZE!
+                    print(f"AAAAA outerArea prepended with #{nodesLen}: #{len(outerAreaNodes)}")
+                elif outerAreaNodes[-1] == nodes[0]:
+                    outerAreaNodes.pop(-1)
+                    outerAreaNodes.extend(nodes)
+                    print(f"AAAAA outerArea extended with #{len(nodes)}: #{len(outerAreaNodes)}")
+                else:
+                    print(f"Outer Area imcomplete. In Relation {element.get('id')}, contains {len(outerAreaNodes)} ways")
+                # check if area is complete, i.e. path is closed:
+                if outerAreaNodes[0] == outerAreaNodes[-1]:
+                    outerAreas.append(outerAreaNodes)
+                    print(f"AAAAAA Outer Area complete: #{len(outerAreaNodes)}\n")
+                    outerAreaNodes = []
+    return outerAreas
 
+
+def append_elements_for_relation(collection, tag_key, tag_value):
+    # create the outer areas by collecting the nodes of all outer ways:
+    for outerNr, outerArea in enumerate(outer_element_nodes_of_relation(e)):
+        collection.append({
+            "id": f"{e.get('id')}.outer#{outerNr+1}",
+            "nodes": outerArea,
+            "tags": {
+                tag_key: tag_value,
+            }
+        })
+
+
+###################################################### START ACTION: #########################
+
+
+highways = []
+waterways = []
+buildings = []
+areas = []
+barriers = []
+nodes = []
+
+from _util import is_area_relation, is_building_relation
+
+# sort elements by type (highway, building, area or node)
+for e in data["elements"]:
+    t = e["type"]
+    tags = e.get("tags")
+    if t == "relation":
+        if not tags:
+            print_element(f"Ignored relation {e.get('id')}, missing tags:", e)
+            continue
+        for tname, tvalue in tags.items():
+            if is_area_relation(tname, tvalue):
+                append_elements_for_relation(areas, tname, tvalue)
+                break # we only use one tag / value
+            elif is_building_relation(tname, tvalue):
+                append_elements_for_relation(areas, tname, tvalue)
+                break # we only use one tag / value
+    elif t == "way":
+        if not tags:
+            print_element("Ignored, missing tags:", e)
+            continue
+        if "area" in tags:
+            areas.append(e)
+        elif "highway" in tags:
+            highways.append(e)
+        elif "waterway" in tags:
+            waterways.append(e)
+        elif "building" in tags or "building:part" in tags:
+            buildings.append(e)
+        elif "barrier" in tags:
+            barriers.append(e)
+        else:
+            areas.append(e)
+    elif t == "node":
+        blockpos = get_nodepos(e["lat"], e["lon"])
+        node_id_to_blockpos[e["id"]] = blockpos
+        if tags and ("natural" in tags or "amenity" in tags or "barrier" in tags):
+            nodes.append(e)
+    else:
+        print(f"Ignoring element {e.get('id')} with unknown type {t}")
+
+
+res_areas = {
+    "low": [],
+    "medium": [],
+    "high": []
+}
+res_buildings = []
+res_decorations = defaultdict(list)
+res_highways = []
+res_waterways = []
+
+print("Processing AREAS...")
+for area in areas:
+    surface, level = get_surface(area)
+
+    if surface is None:
+        print_element("Ignored, could not determine surface:", area)
+        continue
+
+    x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
+    update_min_max(x_coords, y_coords)
+    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]})
 
 print("Processing BUILDINGS...")
 for building in buildings:
@@ -217,7 +277,7 @@ for building in buildings:
         else:
             print_element("Unrecognized building:material", building)
     is_building_part = "building:part" in tags
-    b = {"x": x_coords, "y": y_coords, "is_part": is_building_part}
+    b = {"x": x_coords, "y": y_coords, "is_part": is_building_part, "osm_id": building.get("id")}
     add_building_height(b, tags)
     if material is not None:
         b["material"] = material
