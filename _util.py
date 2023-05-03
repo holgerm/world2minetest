@@ -89,6 +89,12 @@ DECORATIONS = {
 
 ##### RELATIONS: ############
 
+"""
+The following dictionary declares which elements (parts of relations) are recognized as areas.
+Keys are the tag names from OSM, values are sets of accepted tag values. If any value is ok, the 
+set of values is left empty.
+"""
+
 tag_dict_area = {
     "natural": { "water", },
     "landuse": { "forest", "meadow", },
@@ -99,23 +105,25 @@ tag_dict_area = {
 area_tags = tag_dict_area.keys()
 
 def is_area_relation(tag_name, tag_value):
-    for tag in area_tags:
+    if tag_name in area_tags:
         values = tag_dict_area.get(tag_name)
-        if values and tag_value in values:
+        # empty set means any tag value is accepted.
+        if values == {} or tag_value in values: 
             return True
     return False
 
 
 tag_dict_building = {
-    "building": { "transportation", },
+    "building": { }, # any building will be accepted
 }
 
 building_tags = tag_dict_building.keys()
 
 def is_building_relation(tag_name, tag_value):
-    for tag in building_tags:
+    if tag_name in building_tags:
         values = tag_dict_building.get(tag_name)
-        if values and tag_value in values:
+        # empty set means any tag value is accepted.
+        if values == {} or tag_value in values:
             return True
     return False
 

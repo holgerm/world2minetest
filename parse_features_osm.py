@@ -13,15 +13,21 @@ parser.add_argument("--output", "-o", type=argparse.FileType("w"), help="Output 
 
 args = parser.parse_args()
 
+# TODO OPTIMIZE: create (once) and use (often) hashmap! Check for doubles during creation. 
+# Maybe we can even optimize the osm.json data export by smarter use of the query language.
 def find_element(id):
     for e in data["elements"]:
-        if e.get("id") == id:
-            return e
+        try:
+            if e["id"] == id:
+                return e
+        except:
+            continue
 
 
 
 def print_element(msg, e):
     print(msg, f"{e.get('id', 0)} {e.get('type', 'undefined')}[{','.join(k+'='+v for k,v in e.get('tags', {}).items())}]")
+
 
 transform_coords = Transformer.from_crs(CRS.from_epsg(4326), CRS.from_epsg(25832)).transform
 def get_nodepos(lat, lon):
@@ -42,7 +48,6 @@ def node_ids_to_node_positions(node_ids):
 
 
 data = json.load(args.file)
-
 
 min_x = None
 max_x = None
@@ -111,41 +116,39 @@ def get_surface(area):
             # not returned yet: might be overriden by better match...
     return surface, "low"
 
-def add_building_height(building, tags):
+def building_height(tags):
+    # is only called when there was no "height" tag.
     try:
         levels = int(tags["building:levels"])
     except (KeyError, ValueError):
-        levels = None
+        levels = 0
+    
     try:
-        height = int(tags["building:height"].split(' m')[0])
+        roof_levels = int(tags["roof:levels"])
     except (KeyError, ValueError):
-        height = None
-    else:
-        height = min(height, 255)
+        roof_levels = 0
 
-    if height is not None:
-        building["height"] = height
-        return
+    levels += roof_levels
+    if levels > 0:
+        return 3 * levels
 
-    if levels is not None:
-        building["levels"] = levels
-        return
+    # we have no levels, since we guess height by type of building:
 
     if "building" in tags:
-        if tags["building"] in ["yes", "bungalow"]:
-            building["levels"] = 1
-            return
-        elif tags["building"] in ["church", "mosque", "synagogue", "temple"]:
-            building["levels"] = 4
-            return
+        if tags["building"] in ["yes", "bungalow", "toilets"]:
+            return 1
+        elif tags["building"] in ["school", "college", "train_station", "transportation", "barn"]:
+            return 2
+        elif tags["building"] in ["hospital", "university", "barn"]:
+            return 3
+        elif tags["building"] in ["church", "mosque", "synagogue", "temple", "government"]:
+            return 4
         elif tags["building"] in ["cathedral"]:
-            building["levels"] = 5
-            return
+            return 5
     if "tower:type" in tags:
         if tags["tower:type"] in ["bell_tower"]:
-            building["levels"] = 9
-            return
-    return
+            return 9
+    return 1
 
 def outer_element_nodes_of_relation(element):
     outerAreas = []
@@ -153,33 +156,43 @@ def outer_element_nodes_of_relation(element):
     for member in element.get("members"):
         if member.get("type") == "way" and member.get("role") == "outer":
             way = find_element(member.get('ref'))
-            nodes = way.get('nodes')
-            if nodes != None:
+            myNodes = way.get('nodes').copy()
+            if myNodes != None:
                 if len(outerAreaNodes) == 0:
-                    outerAreaNodes = nodes.copy()
-                    print(f"AAAAA outerArea started: #{len(outerAreaNodes)}")
-                elif nodes[-1] == outerAreaNodes[0]:
-                    nodes.pop(-1)
-                    nodesLen = len(nodes)
-                    nodes.extend(outerAreaNodes)
-                    outerAreaNodes = nodes.copy() # TODO OPTIMIZE!
-                    print(f"AAAAA outerArea prepended with #{nodesLen}: #{len(outerAreaNodes)}")
-                elif outerAreaNodes[-1] == nodes[0]:
+                    outerAreaNodes = myNodes
+                elif myNodes[-1] == outerAreaNodes[0]: 
+                    # new way should sit in front of collected area
+                    myNodes.pop(-1)
+                    myNodes.extend(outerAreaNodes)
+                    outerAreaNodes = myNodes
+                elif outerAreaNodes[0] == myNodes[0]: 
+                    # new way has same head as collected area, hence we reverse it and prepend it
+                    reverseNodes = myNodes[3:0:-1] # gets all but the first in reverse order
+                    reverseNodes.extend(outerAreaNodes)
+                    outerAreaNodes = reverseNodes
+                elif outerAreaNodes[-1] == myNodes[0]:
+                    # new way joins after collected area
                     outerAreaNodes.pop(-1)
-                    outerAreaNodes.extend(nodes)
-                    print(f"AAAAA outerArea extended with #{len(nodes)}: #{len(outerAreaNodes)}")
+                    outerAreaNodes.extend(myNodes)
+                elif outerAreaNodes[-1] == myNodes[-1]:
+                    # new way has same tail as collected area, hence we reverse it and extend it at end
+                    reverseNodes = myNodes[2::-1] # gets all but the last in reverse order
+                    outerAreaNodes.extend(reverseNodes)
                 else:
-                    print(f"Outer Area imcomplete. In Relation {element.get('id')}, contains {len(outerAreaNodes)} ways")
+                    print(f"WARNING: way {way['id']} does not fit in relation {element['id']}, hence we ignore it.")
+
                 # check if area is complete, i.e. path is closed:
                 if outerAreaNodes[0] == outerAreaNodes[-1]:
                     outerAreas.append(outerAreaNodes)
-                    print(f"AAAAAA Outer Area complete: #{len(outerAreaNodes)}\n")
                     outerAreaNodes = []
+                else:
+                    print(f"WARNING: relation {element['id']} remains INCOMPLETE, hence we ignore it.")
+
     return outerAreas
 
 
 def append_elements_for_relation(collection, tag_key, tag_value):
-    # create the outer areas by collecting the nodes of all outer ways:
+    # create the outer areas by collecting (area, building etc.) the nodes of all outer ways:
     for outerNr, outerArea in enumerate(outer_element_nodes_of_relation(e)):
         collection.append({
             "id": f"{e.get('id')}.outer#{outerNr+1}",
@@ -206,16 +219,20 @@ from _util import is_area_relation, is_building_relation
 for e in data["elements"]:
     t = e["type"]
     tags = e.get("tags")
-    if t == "relation":
+    if t == "relation" or t == "multipolygon":
         if not tags:
             print_element(f"Ignored relation {e.get('id')}, missing tags:", e)
             continue
         for tname, tvalue in tags.items():
+            if e['id'] == 6306415:
+                print(f"Element from relation found 6306415. tname: {tname}, tvalue: {tvalue}")
             if is_area_relation(tname, tvalue):
+                print(f"Area from relation added. ID: {e.get('id')}")
                 append_elements_for_relation(areas, tname, tvalue)
                 break # we only use one tag / value
             elif is_building_relation(tname, tvalue):
-                append_elements_for_relation(areas, tname, tvalue)
+                print(f"Building from relation added. ID: {e.get('id')}")
+                append_elements_for_relation(buildings, tname, tvalue)
                 break # we only use one tag / value
     elif t == "way":
         if not tags:
@@ -266,9 +283,12 @@ for area in areas:
 
 print("Processing BUILDINGS...")
 for building in buildings:
+    if building['id'] == "1607046":
+        print(f"Building from relation: 1607046 in buildings.")
     x_coords, y_coords = node_ids_to_node_positions(building["nodes"])
     if len(x_coords) < 2:
         print_element(f"Ignored, only {len(x_coords)} nodes:", building)
+        continue
     tags = building["tags"]
     material = None
     if "building:material" in tags:
@@ -278,7 +298,15 @@ for building in buildings:
             print_element("Unrecognized building:material", building)
     is_building_part = "building:part" in tags
     b = {"x": x_coords, "y": y_coords, "is_part": is_building_part, "osm_id": building.get("id")}
-    add_building_height(b, tags)
+    try:
+        height = int(tags["building:height"].split(' m')[0])
+    except:
+        height = building_height(tags)
+    else:
+        height = min(height, 255)
+    finally:
+        b["height"] = height
+    
     if material is not None:
         b["material"] = material
     res_buildings.append(b)

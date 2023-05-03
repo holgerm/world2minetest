@@ -227,6 +227,7 @@ for area_level in (areas_low, areas_medium, areas_high):
             a[yy, xx, 2] = 0  # if areas overlap, this removes any previously generated grass
 
 
+# unsued can be removed
 def get_building_height(building):
     height = building.get("height")
 
@@ -309,9 +310,7 @@ else:
         assert 0 <= ground_z <= 255
         a[yy, xx, 0] = ground_z
         a[yy, xx, 2] = 127 + ground_z + 1
-        height = get_building_height(building)
-        print(built_msg_format.format(x_coords, y_coords, height))
-        a[yy, xx, 3] = np.maximum(a[yy, xx, 3], ground_z + (height or 1))
+        a[yy, xx, 3] = np.maximum(a[yy, xx, 3], ground_z + (building["height"] or 1))
 
 for waterway in features["waterways"]:
     #print(f'Processing waterway id: {waterway["osm_id"]}')
@@ -443,8 +442,12 @@ for highway in features["highways"]:
                     xx.append(x)
                     yy.append(y)
         if height != 0:
-            assert 0 <= a[yy, xx, 0].mean() - height <= 255
-            a[yy, xx, 0] = a[yy, xx, 0].mean() - height
+            mean = a[yy, xx, 0].mean()
+            try:
+                assert 0 <= mean - height <= 255
+            except:
+                a[yy, xx, 0] = 0
+            a[yy, xx, 0] = mean - height
         a[yy, xx, 1] = surface_id
         #print(f'SETTING SURFACE to {surface_id} on {yy} x {xx}')
         if layer >= 0:
