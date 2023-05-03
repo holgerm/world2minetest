@@ -249,8 +249,27 @@ def generate_map_from_features(minX, minY, maxX, maxY):
 		log("... done")
 
 
-def copy_mod_in_project_dir():
+def create_mod():
 	# check runtime mods dir:
+	if not os.path.isdir(w2mt_mod_path):
+		os.makedirs(w2mt_mod_path)
+		if os.path.isdir(w2mt_mod_path):
+			log("Directory for world2minetest mod in minetest home did not exist, hence we created it.")
+		else:
+			log("Failed to create directory for world2minetest mod in minetest home. Do we have enough rights?")
+			return
+	#
+	# copy init.lua to runtime place:
+	cmd = f"cp world2minetest/init.lua \"{w2mt_mod_path}\"/"
+	os.system(cmd)
+	log("Copied init.lua file to mods folder for world2minetest in minetest home (runtime location).")
+	cmd = f"cp world2minetest/mod.conf \"{w2mt_mod_path}\"/"
+	os.system(cmd)
+	log("Copied mod.conf file to mods folder for world2minetest in minetest home (runtime location).")
+
+
+def copy_mod_in_project_dir():
+	# check runtime worlds dir:
 	w2mt_mod_dir = os.path.join(project_path, "world2minetest")
 	if not os.path.isdir(w2mt_mod_dir):
 		os.makedirs(w2mt_mod_dir)
@@ -319,6 +338,7 @@ if not args.minetest_dir:
 	else:
 		args.minetest_dir = os.path.join(os.getcwd(), 'copy_content_to_minetest_dir')
 		log("Neither environment variable MINETEST_GAME_PATH is set nor argument -d is given. Hence we create a local temporary directory in replacement.")
+w2mt_mod_path = os.path.join(args.minetest_dir, "mods", "world2minetest")
 project_path = os.path.join(args.minetest_dir, "worlds", args.project)
 query_file = "query.osm";
 query_path = os.path.join(project_path, query_file)
@@ -332,6 +352,7 @@ perform_query()
 extract_features_from_osm_json()
 generate_map_from_features(minX, minY, maxX, maxY)
 if os.environ["MINETEST_GAME_PATH"]:
+	create_mod()
 	copy_mod_in_project_dir()
 	define_world_for_project()
 else:
