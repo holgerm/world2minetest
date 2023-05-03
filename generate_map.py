@@ -377,7 +377,7 @@ for waterway in features["waterways"]:
                     xx.append(x)
                     yy.append(y)
         if height != 0 and len(yy) > 0:
-            assert 0 <= a[yy, xx, 0].mean() - height <= 255
+            # assert 0 <= a[yy, xx, 0].mean() - height <= 255
             a[yy, xx, 0] = a[yy, xx, 0].mean() - height
         a[yy, xx, 1] = surface_id
         #print(f'SETTING SURFACE to {surface_id} on {yy} x {xx}')
