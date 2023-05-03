@@ -262,10 +262,10 @@ def create_mod():
 	# copy init.lua to runtime place:
 	cmd = f"cp world2minetest/init.lua \"{w2mt_mod_path}\"/"
 	os.system(cmd)
-	log("Copied init.lua file to mods folder for world2minetest in minetest home (runtime location).")
+	log("Copied init.lua file to mods folder in minetest home (runtime location).")
 	cmd = f"cp world2minetest/mod.conf \"{w2mt_mod_path}\"/"
 	os.system(cmd)
-	log("Copied mod.conf file to mods folder for world2minetest in minetest home (runtime location).")
+	log("Copied mod.conf file to mods folder in minetest home (runtime location).")
 
 
 def copy_mod_in_project_dir():

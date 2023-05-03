@@ -146,10 +146,11 @@ local function load_map_file()
     local version = bytes2int(file:read(1))
     local min_compat_version = bytes2int(file:read(1))
     if min_compat_version > CURRENT_VERSION then
-        error("world2minetest can't load map.dat (version " .. version .. ", needs version " .. min_compat_version .. " or higher (mod version: " .. CURRENT_VERSION .. ")")
+         error("world2minetest can't load map.dat")
+--        error("world2minetest can't load map.dat (version " .. version .. ", needs version " .. min_compat_version .. " or higher (mod version: " .. CURRENT_VERSION .. ")")
     end
     if version ~= CURRENT_VERSION then
-        minetest.log("[w2mt] WARNING: map.dat has newer version " .. version .. " (mod version: " .. CURRENT_VERSION .. ")")
+        minetest.log("[w2mt] WARNING: map.dat has newer version ") -- .. version .. " (mod version: " .. CURRENT_VERSION .. ")")
     end
     layer_count = bytes2int(file:read(1))
     floor_height = -bytes2int(file:read(1))
@@ -167,7 +168,7 @@ local function load_map_file()
     else
         incr_info = " no incr data"
     end
-    minetest.log("[w2mt] map.dat loaded! offset_x:" .. offset_x .. " offset_z:" .. offset_z .. " width:" .. width .. " height:" .. height .. " len:" .. map:len() .. incr_info)
+    -- minetest.log("[w2mt] map.dat loaded! offset_x:" .. offset_x .. " offset_z:" .. offset_z .. " width:" .. width .. " height:" .. height .. " len:" .. map:len() .. incr_info)
 end
 
 load_map_file()
@@ -175,7 +176,7 @@ load_map_file()
 
 local vdata = {}
 local function generate(vm, emin, emax, minp, maxp)
-    minetest.log("[w2mt] generate(vm:" .. vm .. ",emin:" .. emin .. ",emax:" .. emax .. ",minp:" .. minp.. ",maxp:" .. maxp)
+    -- minetest.log("[w2mt] generate(vm:" .. vm .. ",emin:" .. emin .. ",emax:" .. emax .. ",minp:" .. minp.. ",maxp:" .. maxp)
     vm:get_data(vdata)
     local va = VoxelArea:new{MinEdge = emin, MaxEdge = emax}
     local schematics_to_place = {}
@@ -298,7 +299,7 @@ minetest.register_chatcommand("w2mt:incr", {
             local node_x_max = node_x_min + 15
             local node_z_min = block_z * 16
             local node_z_max = node_z_min + 15
-            minetest.log("[w2mt] Deleting mapblock " .. i+1 .. "/" .. len .. ": (" .. block_x .. "," .. block_z .. ") from (" .. node_x_min .. "," .. node_z_min .. ") to (" .. node_x_max .. "," .. node_z_max .. ")")
+            -- minetest.log("[w2mt] Deleting mapblock " .. i+1 .. "/" .. len .. ": (" .. block_x .. "," .. block_z .. ") from (" .. node_x_min .. "," .. node_z_min .. ") to (" .. node_x_max .. "," .. node_z_max .. ")")
             minetest.delete_area({x=node_x_min, y=floor_height, z=node_z_min}, {x=node_x_max, y=floor_height+255, z=node_z_max})
         end
     end
@@ -339,6 +340,6 @@ minetest.register_chatcommand("w2mt:generateall", {
             end
             x = x + 80
         end
-        minetest.log("[w2mt] Generated map from " .. start .. " to " .. end_ .. " (total: " .. count .. ")")
+        -- minetest.log("[w2mt] Generated map from " .. start .. " to " .. end_ .. " (total: " .. count .. ")")
     end
 })

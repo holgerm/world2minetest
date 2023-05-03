@@ -219,6 +219,8 @@ from _util import is_area_relation, is_building_relation
 for e in data["elements"]:
     t = e["type"]
     tags = e.get("tags")
+    if tags and "boundary" in tags.keys():
+        continue # ignore boundaries
     if t == "relation" or t == "multipolygon":
         if not tags:
             print_element(f"Ignored relation {e.get('id')}, missing tags:", e)
@@ -238,7 +240,9 @@ for e in data["elements"]:
         if not tags:
             print_element("Ignored, missing tags:", e)
             continue
-        if "area" in tags:
+        if "boundary" in tags:
+            continue # ignore boundaries
+        elif "area" in tags:
             areas.append(e)
         elif "highway" in tags:
             highways.append(e)
