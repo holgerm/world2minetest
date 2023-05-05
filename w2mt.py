@@ -203,7 +203,7 @@ def prepare_query_file():
 	minX, minY = int(round(x)), int(round(y))
 	x, y = transform_coords(north, east)
 	maxX, maxY = int(round(x)), int(round(y))
-	log(f"Area restriction corners: {minX}, {maxX} -> {minY}, {maxY}")
+	log(f"Area restriction corners: {minX}, {maxX} -> {minY}, {maxY} - size: {maxX - minX}, {maxY - minY}")
 	return minX, minY, maxX, maxY
 
 def perform_query():
