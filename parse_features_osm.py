@@ -136,19 +136,19 @@ def building_height(tags):
 
     if "building" in tags:
         if tags["building"] in ["yes", "bungalow", "toilets"]:
-            return 1
-        elif tags["building"] in ["school", "college", "train_station", "transportation", "barn"]:
-            return 2
-        elif tags["building"] in ["hospital", "university", "barn"]:
             return 3
+        elif tags["building"] in ["school", "college", "train_station", "transportation", "barn"]:
+            return 6
+        elif tags["building"] in ["hospital", "university", "barn"]:
+            return 9
         elif tags["building"] in ["church", "mosque", "synagogue", "temple", "government"]:
-            return 4
+            return 12
         elif tags["building"] in ["cathedral"]:
-            return 5
+            return 15
     if "tower:type" in tags:
         if tags["tower:type"] in ["bell_tower"]:
-            return 9
-    return 1
+            return 27
+    return 2
 
 def outer_element_nodes_of_relation(element):
     outerAreas = []
@@ -167,7 +167,7 @@ def outer_element_nodes_of_relation(element):
                     outerAreaNodes = myNodes
                 elif outerAreaNodes[0] == myNodes[0]: 
                     # new way has same head as collected area, hence we reverse it and prepend it
-                    reverseNodes = myNodes[3:0:-1] # gets all but the first in reverse order
+                    reverseNodes = myNodes[len(myNodes):0:-1] # gets all but the first in reverse order
                     reverseNodes.extend(outerAreaNodes)
                     outerAreaNodes = reverseNodes
                 elif outerAreaNodes[-1] == myNodes[0]:
@@ -176,7 +176,7 @@ def outer_element_nodes_of_relation(element):
                     outerAreaNodes.extend(myNodes)
                 elif outerAreaNodes[-1] == myNodes[-1]:
                     # new way has same tail as collected area, hence we reverse it and extend it at end
-                    reverseNodes = myNodes[2::-1] # gets all but the last in reverse order
+                    reverseNodes = myNodes[len(myNodes)-1::-1] # gets all but the last in reverse order
                     outerAreaNodes.extend(reverseNodes)
                 else:
                     print(f"WARNING: way {way['id']} does not fit in relation {element['id']}, hence we ignore it.")
@@ -407,7 +407,9 @@ for node in nodes:
     update_min_max([x], [y])
     res_decorations[deco].append({"x": x, "y": y})
 
-print(f"\nOutput dumped to: {args.output.name}\nfrom {min_x},{min_y} to {max_x},{max_y} (size: {max_x-min_x+1},{max_y-min_y+1})")
+size_x = max_x-min_x+1
+size_y = max_y-min_y+1
+print(f"\nOutput dumped to: {args.output.name}\nfrom {min_x},{min_y} to {max_x},{max_y}: (size: {size_x},{size_y})")
 
 json.dump({
     "min_x": min_x,
