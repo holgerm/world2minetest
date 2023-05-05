@@ -43,6 +43,7 @@ Danach seid in der Minetest Welt der Museumsinsel
 - `-q` oder `--query` verwendet die eigene Anfragedatei statt der Koordinaten. Lasst dann die Optionen `-r` sowie `-a` oder `--area` weg. Die Anfragedatei müsst oihr in der [Overpass Query Language](https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL) schreiben und den Dateinamen hier als Argumentwert angeben.
 - `-b` oder `--backend` kann die Werte `sqlite` oder `leveldb` als Wert bekommen. Damit könnt ihr das Datenbank Backend für die Weltdaten festlegen. Default ist `sqlite`.
 - `-u`or `--unrestricted` (flag without value) will include all objects in the world, not rectricted to the boundary given by the ccordinates.
+- `-s`or `--start`starts the world after it has been created in server mode.
 
 
 ### Log
