@@ -16,8 +16,10 @@ Installation
 
  1. Copy this repo's content to your computer, e.g. by cloning:
     ```
-    git clone https://github.com/FlorianRaediker/world2minetest.git
+    git clone https://github.com/holgerm/world2minetest.git
     ```
+    This will generate a new folder in your current directory with all files needed.
+    
  2. Install the required Python modules:
     ```
     pip3 install -r requirements.txt
@@ -28,9 +30,8 @@ Installation
 How to use
 ==========
 
-We offer a [simple guide](SimpleGuide.md) to easy world generation based solely on a apir of coordinates and using only openstreetmap data.
+We offer a [simple guide](SimpleGuide.md) to easy world generation based solely on a pair of coordinates and using only openstreetmap data.
 
-We also offer a [detailed guide](DetailedGuide.md) including the use of heightmaps, openstreetmap data, decorations as well as 3-D data.
 
 
 License
