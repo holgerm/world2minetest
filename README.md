@@ -2,13 +2,7 @@
 
 ***
 
-world2minetest is a tool to generate [Minetest](https://www.minetest.net/) worlds based on publicly available real-world geodata. It was inspired by tools such as [geo-mapgen](https://github.com/Gael-de-Sailly/geo-mapgen).
-
-Currently, the following geodata sources are supported. Heightmaps and .dxf CAD files must use the [EPSG:25832](https://epsg.io/25832) coordinate system.
- * Heightmaps in "XYZ ASCII" format
- * [OpenStreetMap](https://openstreetmap.org), using the [Overpass API](https://overpass-turbo.eu/)
- * .dxf CAD files (trees & bushes only)
-
+world2minetest is a tool to generate [Minetest](https://www.minetest.net/) worlds based on OpenStreetMap data. 
 
 
 Installation
