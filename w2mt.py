@@ -138,6 +138,7 @@ def get_args():
 	parser.add_argument('-r', '--reuse_query', action='store_true', help="Reuse project-specific query file.")
 	parser.add_argument('-a', '--area', type=ascii, help="Decimal coordinates of two opposite corners of desired area, separated by commas: 'lat_1, long_1, lat_2, long_2'")
 	parser.add_argument('-u', '--unrestricted', action='store_true', help="Unrestrcited area, i.e. all data reaching beyond area boundary is included and stretches the area")
+	parser.add_argument('-s', '--start', action='store_true', help="Starts the world after creating it in server mode.")
 	return parser.parse_args()
 
 # log to console and/or file, depending on verbose flag:
@@ -308,6 +309,16 @@ def define_world_for_project():
 	log(f"world.mt file generated: {world_file}.")
 
 
+def start_world():
+	cmd = f"minetest --server --worldname {args.worldname}"
+	error = os.system(cmd)
+	if error:
+		log(f"Could not start world {args.worldname}.")
+
+
+
+		
+
 ######### SCRIPT EXECUTION STARTS HERE: ##############
 
 args = get_args()
@@ -358,3 +369,5 @@ if os.environ["MINETEST_GAME_PATH"]:
 else:
 	log("Environment variable MINETEST_GAME_PATH not set. In order to manage w2mt mod and worlds you need to set it to the minetest home dir which should contain 'mods' and 'worlds' folders.")
 
+if args.start:
+	start_world()
