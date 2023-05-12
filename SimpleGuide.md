@@ -22,7 +22,8 @@ Oder ihr startet euren Minetest Client und findet die neue Welt unter dem Namen 
 
 Danach seid in der Minetest Welt der Museumsinsel
 
-<img width="1552" alt="Screenshot 2023-04-06 at 17 33 32" src="https://user-images.githubusercontent.com/60585/230460649-e02df221-a430-431a-8533-eced2d3141da.png">
+<img width="1552" alt="Screenshot 2023-05-12 at 17 55 46" src="https://github.com/holgerm/world2minetest/assets/60585/bc82f841-e4fc-49be-9714-9ad760cd0c3e">
+
 
 
 
