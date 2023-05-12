@@ -26,8 +26,6 @@ WATERWAY_WIDTHS = {
     "drain": 1,
     "ditch": 1,
     "stream": 2,
-    "canal": 4,
-    "river": 5
 }
 
 
@@ -107,6 +105,8 @@ features = {
     "decorations": {}
 }
 
+areas_outer = []
+areas_inner = []
 areas_low = []
 areas_medium = []
 areas_high = []
@@ -129,6 +129,12 @@ for file in args.features or []:
                     if value:
                         features["decorations"][key] = value
         elif feature in ["areas"]:
+            if "outer" in data["areas"] and data["areas"]["outer"]:
+                areas_outer.extend(data["areas"]["outer"])
+                print(f"We got #{len(areas_outer)} outer areas.")
+            if "inner" in data["areas"] and data["areas"]["inner"]:
+                areas_inner.extend(data["areas"]["inner"])
+                print(f"We got #{len(areas_inner)} inner areas.")
             if "low" in data["areas"] and data["areas"]["low"]:
                 areas_low.extend(data["areas"]["low"])
                 print(f"We got #{len(areas_low)} low areas.")
@@ -204,8 +210,9 @@ def shift_coords(x_coords, y_coords):
     return restrict_x_y(x,y)
 
 
-for area_level in (areas_low, areas_medium, areas_high):
+for area_level in (areas_outer, areas_inner, areas_low, areas_medium, areas_high):
     for area in area_level:
+        print(f"AREA found: {area['osm_id']}")
         x, y = shift_coords(area["x"], area["y"])
         if len(x) < 3:
             if args.verbose: print("Too few coordinates, ignoring area:", x, y, area)
@@ -225,6 +232,8 @@ for area_level in (areas_low, areas_medium, areas_high):
                     a[y, x, 2] = DECORATIONS["grass"]
         else:
             a[yy, xx, 2] = 0  # if areas overlap, this removes any previously generated grass
+
+        # TODO remove all existing wholes in this area!!!
 
 
 # unsued can be removed
@@ -248,70 +257,6 @@ def get_building_height(building):
             return min(1, levels * 3)
    
 
-if args.buildings:
-    print("Reading buildings file")
-    count_points_in_area = 0
-    count_points_out_of_area = 0
-    buildings_file = args.buildings
-    buildings_count = from_bytes(buildings_file.read(4))
-    assert from_bytes(buildings_file.read(1)) == 0
-    for _ in trange(buildings_count):
-        new_building = {}
-        surface_name_len_bytes = buildings_file.read(1)
-        while (surface_name_len := from_bytes(surface_name_len_bytes)) != 0:
-            surface_name = buildings_file.read(surface_name_len).decode("utf-8")
-            roof_summand = 127 if surface_name == "roof" else 0
-            is_ground = surface_name == "ground"
-            pos_count = from_bytes(buildings_file.read(4))
-            for _ in range(pos_count):
-                x = from_bytes(buildings_file.read(4))
-                y = from_bytes(buildings_file.read(4))
-                z = from_bytes(buildings_file.read(4))
-                if min_x <= x <= max_x and min_y <= y <= max_y:
-                    count_points_in_area += 1
-                    x = x-min_x
-                    y = y-min_y
-                    z -= heightmap_sub
-                    z -= args.buildings_base_height
-                    if args.flat:
-                        if h_offset_x <= x < h_offset_x+heightmap.shape[1] and h_offset_y <= y < h_offset_y+heightmap.shape[0]:
-                            z -= heightmap[y-h_offset_y, x-h_offset_x]
-                        z += FLAT_HEIGHT
-                    if is_ground:
-                        if not args.flat:
-                            assert 0 <= z <= 255
-                            a[y, x, 0] = z
-                        a[y, x, 1] = SURFACES["building_ground"][0]
-                        # print(f'SETTING SURFACE to {SURFACES["building_ground"][0]} on {yy} x {xx}')
-                    else:
-                        if z > 0:
-                            if a[y, x, 2] >= 128:
-                                a[y, x, 2] = min(a[y, x, 2], 127 + z)
-                            else:
-                                a[y, x, 2] = 127 + z
-                            a[y, x, 3] = max(a[y, x, 3], roof_summand + z)
-                else:
-                    count_points_out_of_area += 1
-            surface_name_len_bytes = buildings_file.read(1)
-    if count_points_out_of_area > 0:
-        print(f"Warning: {count_points_out_of_area}/{count_points_in_area+count_points_out_of_area} building points were outside the area and skipped")
-else:
-    for building in features["buildings"]:
-        built_msg_format = "BUILDING drawn with coords {}, {} and height {}"
-        x_coords, y_coords = shift_coords(building["x"], building["y"])
-        if len(x_coords) < 2:
-            print("Too few coordinates, ignoring building:", x_coords, y_coords, building)
-            continue
-        elif len(x_coords) == 2:
-            xx, yy = skimage.draw.line(x_coords[0], y_coords[0], x_coords[1], y_coords[1])
-        else:
-            xx, yy = skimage.draw.polygon_perimeter(x_coords, y_coords)
-        ground_z = int(round(a[yy, xx, 0].mean()))
-        assert 0 <= ground_z <= 255
-        a[yy, xx, 0] = ground_z
-        a[yy, xx, 2] = 127 + ground_z + 1
-        a[yy, xx, 3] = np.maximum(a[yy, xx, 3], ground_z + (building["height"] or 1))
-
 for waterway in features["waterways"]:
     #print(f'Processing waterway id: {waterway["osm_id"]}')
     x_coords, y_coords = shift_coords(waterway["x"], waterway["y"])
@@ -321,7 +266,7 @@ for waterway in features["waterways"]:
     #print(f'surface: {surface} -> surface-id: {surface_id}')
     layer = waterway.get("layer", 0)
     #print(f'layer: {layer}')
-    width = WATERWAY_WIDTHS.get(waterway["type"], 3)
+    width = WATERWAY_WIDTHS.get(waterway["type"], 1)
     #print(f'width: {width}')
     height = -layer*3 if layer < 0 else 0
     #print(f'height: {height}')
@@ -454,6 +399,71 @@ for highway in features["highways"]:
             # remove anything above the surface (buildings, randomly added grass)
             a[yy, xx, 2] = 0
             a[yy, xx, 3] = 0
+
+if args.buildings:
+    print("Reading buildings file")
+    count_points_in_area = 0
+    count_points_out_of_area = 0
+    buildings_file = args.buildings
+    buildings_count = from_bytes(buildings_file.read(4))
+    assert from_bytes(buildings_file.read(1)) == 0
+    for _ in trange(buildings_count):
+        new_building = {}
+        surface_name_len_bytes = buildings_file.read(1)
+        while (surface_name_len := from_bytes(surface_name_len_bytes)) != 0:
+            surface_name = buildings_file.read(surface_name_len).decode("utf-8")
+            roof_summand = 127 if surface_name == "roof" else 0
+            is_ground = surface_name == "ground"
+            pos_count = from_bytes(buildings_file.read(4))
+            for _ in range(pos_count):
+                x = from_bytes(buildings_file.read(4))
+                y = from_bytes(buildings_file.read(4))
+                z = from_bytes(buildings_file.read(4))
+                if min_x <= x <= max_x and min_y <= y <= max_y:
+                    count_points_in_area += 1
+                    x = x-min_x
+                    y = y-min_y
+                    z -= heightmap_sub
+                    z -= args.buildings_base_height
+                    if args.flat:
+                        if h_offset_x <= x < h_offset_x+heightmap.shape[1] and h_offset_y <= y < h_offset_y+heightmap.shape[0]:
+                            z -= heightmap[y-h_offset_y, x-h_offset_x]
+                        z += FLAT_HEIGHT
+                    if is_ground:
+                        if not args.flat:
+                            assert 0 <= z <= 255
+                            a[y, x, 0] = z
+                        a[y, x, 1] = SURFACES["building_ground"][0]
+                        # print(f'SETTING SURFACE to {SURFACES["building_ground"][0]} on {yy} x {xx}')
+                    else:
+                        if z > 0:
+                            if a[y, x, 2] >= 128:
+                                a[y, x, 2] = min(a[y, x, 2], 127 + z)
+                            else:
+                                a[y, x, 2] = 127 + z
+                            a[y, x, 3] = max(a[y, x, 3], roof_summand + z)
+                else:
+                    count_points_out_of_area += 1
+            surface_name_len_bytes = buildings_file.read(1)
+    if count_points_out_of_area > 0:
+        print(f"Warning: {count_points_out_of_area}/{count_points_in_area+count_points_out_of_area} building points were outside the area and skipped")
+else:
+    for building in features["buildings"]:
+        built_msg_format = "BUILDING drawn with coords {}, {} and height {}"
+        x_coords, y_coords = shift_coords(building["x"], building["y"])
+        if len(x_coords) < 2:
+            print("Too few coordinates, ignoring building:", x_coords, y_coords, building)
+            continue
+        elif len(x_coords) == 2:
+            xx, yy = skimage.draw.line(x_coords[0], y_coords[0], x_coords[1], y_coords[1])
+        else:
+            xx, yy = skimage.draw.polygon_perimeter(x_coords, y_coords)
+        ground_z = int(round(a[yy, xx, 0].mean()))
+        assert 0 <= ground_z <= 255
+        a[yy, xx, 0] = ground_z
+        a[yy, xx, 2] = 127 + ground_z + 1
+        a[yy, xx, 3] = np.maximum(a[yy, xx, 3], ground_z + (building["height"] or 1))
+
 
 
 for deco, decorations in features["decorations"].items():

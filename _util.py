@@ -100,16 +100,23 @@ tag_dict_area = {
     "landuse": { "forest", "meadow", },
     "surface": { "grass", },
     "leisure": { "park", },
+    "place": { "islet", },
 }
 
 area_tags = tag_dict_area.keys()
 
-def is_area_relation(tag_name, tag_value):
-    if tag_name in area_tags:
-        values = tag_dict_area.get(tag_name)
-        # empty set means any tag value is accepted.
-        if values == {} or tag_value in values: 
-            return True
+def is_area_relation(relation):
+    try:
+        tags = relation["tags"]
+    except:
+        return False
+
+    for tag_name, tag_value in tags.items():
+        if tag_name in area_tags:
+            values = tag_dict_area.get(tag_name)
+            # empty set means any tag value is accepted.
+            if values == {} or tag_value in values: 
+                return True
     return False
 
 
@@ -119,11 +126,17 @@ tag_dict_building = {
 
 building_tags = tag_dict_building.keys()
 
-def is_building_relation(tag_name, tag_value):
-    if tag_name in building_tags:
-        values = tag_dict_building.get(tag_name)
-        # empty set means any tag value is accepted.
-        if values == {} or tag_value in values:
-            return True
+def is_building_relation(relation):
+    try:
+        tags = relation["tags"]
+    except:
+        return false
+        
+    for tag_name, tag_value in tags.items():
+        if tag_name in building_tags:
+            values = tag_dict_building.get(tag_name)
+            # empty set means any tag value is accepted.
+            if values == {} or tag_value in values:
+                return True
     return False
 

@@ -170,14 +170,19 @@ def check_project_dir():
 def prepare_query_file():
 	query_string = ""
 	if args.reuse_query:
-		with open(query_path, 'r') as file:
-			query_string = file.read()
-			log(f"Reused project QUERY file {query_path}")
-	elif args.query:
-		with open(args.query, 'r') as file:
-			query_string = file.read()
-			log(f"Used query file {args.query}")
-	elif args.area:
+		try:
+			with open(query_path, 'r') as file:
+				query_string = file.read()
+			if not query_string:
+				sys.exit(f"Could not reuse query file: could not open the file '{query_path}'")
+		except Exception as exc:
+				sys.exit(f"While trying to open the query file '{query_path}' this exception was thrown: {exc}")
+
+		import re
+		match = re.search("\s*\[\s*bbox:\s*(\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*)\s*\]\s*", query_string)
+		args.area = match.group(1)
+	
+	if args.area:
 		# Extract and potentially correct the corners of the area as coordinates:
 		stripped = args.area.strip().replace(" ", "").replace("'", "").replace("\"", "")
 		corners = stripped.split(",")
@@ -191,13 +196,24 @@ def prepare_query_file():
 			west = tmp
 		# copy the template query file in place and open it
 		query_string = query_template.format(south, west, north, east)
-		log(f"Query file generated with S: {south}, W: {west}, N: {north}, E: {east}")
+	elif args.query:
+		with open(args.query, 'r') as file:
+			query_string = file.read()
+			log(f"Used query file {args.query}")
 	else:
 		log(f"Neither query file specified (-q), nor reusing project query file (-r), nor area given (-a). E.g. '52.524023988954376, 13.390914318783942, 52.51004666633488, 13.415739884736942', i.e. South, West, North, East. You can copy these coordinates from google maps for convenience.")
 		sys.exit("Area not specified.")
-	# Write the file:
-	with open(query_path, 'w') as file:
-		file.write(query_string)
+
+	if args.reuse_query:
+		log(f"Query will be reused with S: {south}, W: {west}, N: {north}, E: {east}")
+	else:
+		try:
+			# Write the file:
+			with open(query_path, 'w') as file:
+				file.write(query_string)
+			log(f"Query file generated with S: {south}, W: {west}, N: {north}, E: {east}")
+		except Exception as exc:
+			sys.exit(f"While trying to write query file '{query_path}' this exception was thrown: {exc}")
 
 	transform_coords = Transformer.from_crs(CRS.from_epsg(4326), CRS.from_epsg(25832)).transform
 	x, y = transform_coords(south, west)
@@ -359,7 +375,8 @@ feature_path = os.path.join(project_path, feature_file)
 
 check_project_dir()
 minX, minY, maxX, maxY = prepare_query_file()
-perform_query()
+if not args.reuse_query:
+	perform_query()
 extract_features_from_osm_json()
 generate_map_from_features(minX, minY, maxX, maxY)
 if os.environ["MINETEST_GAME_PATH"]:

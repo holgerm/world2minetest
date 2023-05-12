@@ -6,6 +6,8 @@ from pyproj import CRS, Transformer
 
 from _util import SURFACES, DECORATIONS
 
+import sys
+
 
 parser = argparse.ArgumentParser(description="Parse OSM data")
 parser.add_argument("file", type=argparse.FileType("r", encoding="utf-8"), help="GeoJSON file with OSM data")
@@ -22,7 +24,7 @@ def find_element(id):
                 return e
         except:
             continue
-
+    return f"no element with id {id} found"
 
 
 def print_element(msg, e):
@@ -107,13 +109,16 @@ def get_surface(area):
         elif tags["landuse"] == "reservoir":
             return "water", "low"
         elif tags["landuse"] == "grass" or tags["landuse"] == "meadow" or tags["landuse"] == "forest":
-            return "natural", "low"
+            return "natural", "medium"
         elif tags["landuse"] in SURFACES:
             return tags["landuse"], "low"
         else:
             surface = "landuse"
             res_area = "low"
             # not returned yet: might be overriden by better match...
+    elif "place" in tags:
+        if tags["place"] == "islet":
+            return "default", "low"
     return surface, "low"
 
 def building_height(tags):
@@ -150,66 +155,114 @@ def building_height(tags):
             return 27
     return 2
 
-def outer_element_nodes_of_relation(element):
-    outerAreas = []
-    outerAreaNodes = []
-    for member in element.get("members"):
-        if member.get("type") == "way" and member.get("role") == "outer":
+
+def rel_has_only_outer_ways(relation):
+    for member in relation["members"]:
+        if member["type"] != "way":
+            return False
+
+        try:
+            role = member["role"]
+        except:
+            return False
+
+        if role == "inner":
+            return False
+    return True
+
+
+def split_relation_in_areas_and_holes(relation, list_for_outer_areas, list_for_inner_areas, list_of_areas):
+    areaNr = 0
+    areaNodes = []
+    for member in relation["members"]:
+        try:
+            role = member["role"]
+        except:
+            continue
+
+        if member["type"] == "way":
+            if rel_has_only_outer_ways(relation):
+                area_collection = list_of_areas
+                if member['ref'] == 59683400:
+                    sys.stderr.write("INNER 59683400 used as AREA.")
+            elif role == "inner":
+                if is_area_relation(member):
+                    if member['ref'] == 59683400:
+                        sys.stderr.write("INNER 59683400 LEFT OUT.")
+                    continue # leave inner areas out when they are areas in their own right: they will be taken care of later
+                else:
+                    area_collection = list_for_inner_areas # an inner empty area
+                    if member['ref'] == 59683400:
+                        sys.stderr.write("INNER 59683400 used as INNER.")
+            else: 
+                area_collection = list_for_outer_areas
+                if member['ref'] == 59683400:
+                    sys.stderr.write("INNER 59683400 used as OUTER.")
+
             way = find_element(member.get('ref'))
-            myNodes = way.get('nodes').copy()
-            if myNodes != None:
-                if len(outerAreaNodes) == 0:
-                    outerAreaNodes = myNodes
-                elif myNodes[-1] == outerAreaNodes[0]: 
-                    # new way should sit in front of collected area
-                    myNodes.pop(-1)
-                    myNodes.extend(outerAreaNodes)
-                    outerAreaNodes = myNodes
-                elif outerAreaNodes[0] == myNodes[0]: 
-                    # new way has same head as collected area, hence we reverse it and prepend it
-                    reverseNodes = myNodes[len(myNodes):0:-1] # gets all but the first in reverse order
-                    reverseNodes.extend(outerAreaNodes)
-                    outerAreaNodes = reverseNodes
-                elif outerAreaNodes[-1] == myNodes[0]:
-                    # new way joins after collected area
-                    outerAreaNodes.pop(-1)
-                    outerAreaNodes.extend(myNodes)
-                elif outerAreaNodes[-1] == myNodes[-1]:
-                    # new way has same tail as collected area, hence we reverse it and extend it at end
-                    reverseNodes = myNodes[len(myNodes)-1::-1] # gets all but the last in reverse order
-                    outerAreaNodes.extend(reverseNodes)
-                else:
-                    print(f"WARNING: way {way['id']} does not fit in relation {element['id']}, hence we ignore it.")
+            try:
+                myNodes = way['nodes'].copy()
+            except:
+                continue
 
-                # check if area is complete, i.e. path is closed:
-                if outerAreaNodes[0] == outerAreaNodes[-1]:
-                    outerAreas.append(outerAreaNodes)
-                    outerAreaNodes = []
-                else:
-                    print(f"WARNING: relation {element['id']} remains INCOMPLETE, hence we ignore it.")
+            nodesCount = len(myNodes)
+            if len(areaNodes) == 0:
+                print(f"xxx #0 Start ({nodesCount})")
+                areaNodes = myNodes
+            elif myNodes[-1] == areaNodes[0]: 
+                # new way should sit in front of collected area
+                myNodes.pop(-1)
+                myNodes.extend(areaNodes)
+                areaNodes = myNodes
+                print(f"xxx #1 Prepend ({nodesCount} => {len(areaNodes)})")
+            elif areaNodes[0] == myNodes[0]: 
+                # new way has same head as collected area, hence we reverse it and prepend it
+                reverseNodes = myNodes[len(myNodes):0:-1] # gets all but the first in reverse order
+                reverseNodes.extend(areaNodes)
+                areaNodes = reverseNodes
+                print(f"xxx #2 Prepend reversed ({nodesCount}) => {len(areaNodes)}")
+            elif areaNodes[-1] == myNodes[0]:
+                # new way joins after collected area
+                areaNodes.pop(-1)
+                areaNodes.extend(myNodes)
+                print(f"xxx #3 Extend ({nodesCount}) => {len(areaNodes)}")
+            elif areaNodes[-1] == myNodes[-1]:
+                # new way has same tail as collected area, hence we reverse it and extend it at end
+                reverseNodes = myNodes[len(myNodes)-1::-1] # gets all but the last in reverse order
+                areaNodes.extend(reverseNodes)
+                print(f"xxx #4 Extend reversed ({nodesCount}) => {len(areaNodes)}")
+            else:
+                print(f"xxx WARNING: way {way['id']} does not fit in relation {relation['id']}, hence we ignore it.")
 
-    return outerAreas
+            # check if area is complete, i.e. path of nodes is closed:
+            if role == "outer":
+                areaTags = relation["tags"]
+            else: 
+                areaTags = { "empty_area" : "yes", }
+            if areaNodes[0] == areaNodes[-1]:
+                area_collection.append({
+                    "id": f"{relation['id']}.{role}#{areaNr}",
+                    "nodes": areaNodes,
+                    "tags": areaTags,
+                })
+                print(f"xxx Relation {relation['id']}.{role}#{areaNr} COMPLETE and added to our areas with #{len(areaNodes)} nodes")
+                areaNodes = []
+                areaNr += 1
+            else:
+                print(f"xxx Relation {relation['id']} has #{len(areaNodes)} nodes but is still incomplete, hence we keep collecting parts ...")
 
+    return
 
-def append_elements_for_relation(collection, tag_key, tag_value):
-    # create the outer areas by collecting (area, building etc.) the nodes of all outer ways:
-    for outerNr, outerArea in enumerate(outer_element_nodes_of_relation(e)):
-        collection.append({
-            "id": f"{e.get('id')}.outer#{outerNr+1}",
-            "nodes": outerArea,
-            "tags": {
-                tag_key: tag_value,
-            }
-        })
 
 
 ###################################################### START ACTION: #########################
 
-
+outer_areas = []
+inner_empty_areas = [] # aka holes
+areas = [] # normal areas made up from ways
 highways = []
 waterways = []
 buildings = []
-areas = []
 barriers = []
 nodes = []
 
@@ -221,57 +274,100 @@ for e in data["elements"]:
     tags = e.get("tags")
     if tags and "boundary" in tags.keys():
         continue # ignore boundaries
-    if t == "relation" or t == "multipolygon":
-        if not tags:
-            print_element(f"Ignored relation {e.get('id')}, missing tags:", e)
-            continue
-        for tname, tvalue in tags.items():
-            if e['id'] == 6306415:
-                print(f"Element from relation found 6306415. tname: {tname}, tvalue: {tvalue}")
-            if is_area_relation(tname, tvalue):
-                print(f"Area from relation added. ID: {e.get('id')}")
-                append_elements_for_relation(areas, tname, tvalue)
-                break # we only use one tag / value
-            elif is_building_relation(tname, tvalue):
-                print(f"Building from relation added. ID: {e.get('id')}")
-                append_elements_for_relation(buildings, tname, tvalue)
-                break # we only use one tag / value
-    elif t == "way":
-        if not tags:
-            print_element("Ignored, missing tags:", e)
-            continue
-        if "boundary" in tags:
-            continue # ignore boundaries
-        elif "area" in tags:
-            areas.append(e)
-        elif "highway" in tags:
-            highways.append(e)
-        elif "waterway" in tags:
-            waterways.append(e)
-        elif "building" in tags or "building:part" in tags:
-            buildings.append(e)
-        elif "barrier" in tags:
-            barriers.append(e)
-        else:
-            areas.append(e)
-    elif t == "node":
+    if t == "node":
         blockpos = get_nodepos(e["lat"], e["lon"])
         node_id_to_blockpos[e["id"]] = blockpos
         if tags and ("natural" in tags or "amenity" in tags or "barrier" in tags):
             nodes.append(e)
+            continue
+    elif t == "relation" or t == "multipolygon":
+        if not tags:
+            print_element(f"Ignored relation {e.get('id')}, missing tags:", e)
+            continue
+        members = e.get("members")
+        if not members:
+            print_element(f"Ignored relation {e.get('id')}, missing members:", e)
+            continue
+        if is_area_relation(e):
+            print(f"Area from relation added. ID: {e.get('id')}")
+            split_relation_in_areas_and_holes(e, outer_areas, inner_empty_areas, areas)
+            continue
+        elif is_building_relation(e):
+            print(f"Building from relation added. ID: {e.get('id')}")
+            split_relation_in_areas_and_holes(e, buildings, buildings, buildings)
+            continue
+    elif t == "way":
+        if not tags:
+            print_element("Ignored, missing tags:", e)
+            continue
+        elif "area" in tags:
+            areas.append(e)
+            continue
+        elif "highway" in tags:
+            highways.append(e)
+            continue
+        elif "waterway" in tags:
+            if tags['waterway'] in { "ditch", "drain", "stream"}:
+                waterways.append(e)
+            continue
+        elif "building" in tags or "building:part" in tags:
+            buildings.append(e)
+            continue
+        elif "barrier" in tags:
+            barriers.append(e)
+            continue
+        else:
+            areas.append(e)
+            continue
     else:
         print(f"Ignoring element {e.get('id')} with unknown type {t}")
+        continue
 
 
 res_areas = {
+    "outer": [],
+    "inner": [],
     "low": [],
     "medium": [],
-    "high": []
+    "high": [],
 }
 res_buildings = []
 res_decorations = defaultdict(list)
 res_highways = []
 res_waterways = []
+
+############# PHASE 2: ##############
+
+
+print("Processing OUTER_AREAS...")
+for area in outer_areas:
+    surface, level = get_surface(area)
+    level = "outer"
+
+    if surface is None:
+        print_element("Ignored, could not determine surface:", area)
+        continue
+
+    x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
+    update_min_max(x_coords, y_coords)
+    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]}) # TODO add holes (inner elements)
+    print(f"Added outer area to res_area #{area['id']} surface: {surface}, level: {level}")
+
+print("Processing INNER EMPTY AREAS ...")
+for hole in inner_empty_areas:
+    surface = "default"
+    level = "inner"
+
+    try:
+        myNodes = hole["nodes"]
+    except:
+        continue
+
+    x_coords, y_coords = node_ids_to_node_positions(hole["nodes"])
+    update_min_max(x_coords, y_coords)
+    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": hole["id"]}) # TODO add holes (inner elements)
+    print(f"Added hole to res_area #{hole['id']} surface: {surface}, level: {level}, now we have {len(res_areas['inner'])} inner areas.")
+
 
 print("Processing AREAS...")
 for area in areas:
@@ -283,7 +379,8 @@ for area in areas:
 
     x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
     update_min_max(x_coords, y_coords)
-    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]})
+    res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]}) # TODO add holes (inner elements)
+    print(f"Added res_area #{area['id']} surface: {surface}, level: {level}")
 
 print("Processing BUILDINGS...")
 for building in buildings:
@@ -379,7 +476,6 @@ for highway in highways:
     x_coords, y_coords = node_ids_to_node_positions(highway["nodes"])
     update_min_max(x_coords, y_coords)
     res_highways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "osm_id": highway["id"], "type": tags["highway"]})
-
 
 # NODES
 for node in nodes:
