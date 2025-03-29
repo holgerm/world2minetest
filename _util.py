@@ -1,14 +1,25 @@
 import numpy as np
 
 
-def to_bytes(x: int, length: int) -> bytes:
-    x = [None, np.uint8, np.uint16, None, np.uint32][length](x)
-    # func copied from https://github.com/Gael-de-Sailly/geo-mapgen/blob/4bacbe902e7c0283a24ee3efa35c283ad592e81c/database.py#L34
-    #res = x.newbyteorder("<").tobytes()
-    res =  x.view(x.dtype.newbyteorder("<"))
-    # assert len(res) == length
-    return res
+# def to_bytes(x: int, length: int) -> bytes:
+#     x = [None, np.uint8, np.uint16, None, np.uint32][length](x)
+#     # func copied from https://github.com/Gael-de-Sailly/geo-mapgen/blob/4bacbe902e7c0283a24ee3efa35c283ad592e81c/database.py#L34
+#     res = x.newbyteorder("<").tobytes()
+#     assert len(res) == length
+#     return res
 
+def to_bytes(x: int, length: int) -> bytes:
+    dtype = [None, np.uint8, np.uint16, None, np.uint32][length]
+    val = dtype(x)
+    try:
+        # Try legacy method (NumPy < 2.0)
+        res = val.newbyteorder("<").tobytes()
+    except AttributeError:
+        # NumPy 2.0+
+        little_endian_dtype = np.dtype(val.dtype).newbyteorder("<")
+        res = val.view(little_endian_dtype).tobytes()
+    assert len(res) == length
+    return res
 
 def from_bytes(b):
     return int.from_bytes(b, "little")
