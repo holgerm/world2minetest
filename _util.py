@@ -4,8 +4,9 @@ import numpy as np
 def to_bytes(x: int, length: int) -> bytes:
     x = [None, np.uint8, np.uint16, None, np.uint32][length](x)
     # func copied from https://github.com/Gael-de-Sailly/geo-mapgen/blob/4bacbe902e7c0283a24ee3efa35c283ad592e81c/database.py#L34
-    res = x.newbyteorder("<").tobytes()
-    assert len(res) == length
+    #res = x.newbyteorder("<").tobytes()
+    res =  x.view(x.dtype.newbyteorder("<"))
+    # assert len(res) == length
     return res
 
 
@@ -23,7 +24,8 @@ SURFACES = {
     "concrete": [3,[183,183,183, 255]],
     "asphalt": [4, [40,40,40, 255]],
     "dirt": [5,[139,119,101, 255]],
-
+    
+    "rail": [9, [43,15,3, 255]], # dark brown
     "highway": [10, [91,91,91, 255]],  # default
     "footway": [11, [139,137,137, 255]],
     "service": [12,[216,191,216, 255]],

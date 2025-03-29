@@ -100,6 +100,7 @@ else:
 features = {
     "areas": [],
     "highways": [],
+    "railways": [],
     "waterways": [],
     "buildings": [],
     "decorations": {}
@@ -119,10 +120,12 @@ for file in args.features or []:
     max_y = max_y if max_y is not None else data["max_y"]
     print(f'minX: {min_x}, maxX: {max_x}, minY: {min_y}, maxY: {max_y}')
     for feature in features.keys():
-        if feature in ["highways", "waterways", "buildings"]:
+        if feature in ["highways", "railways", "waterways", "buildings"]:
             print(f'Found feature: {feature}')
             if feature in data and data[feature]:
                 features[feature] = data[feature]
+                print(f'Saved feature[feature]: {feature}')
+
         elif feature in ["decorations"]:
             if "decorations" in data and data["decorations"]:
                 for key, value in data["decorations"].items():
@@ -212,7 +215,6 @@ def shift_coords(x_coords, y_coords):
 
 for area_level in (areas_outer, areas_inner, areas_low, areas_medium, areas_high):
     for area in area_level:
-        print(f"AREA found: {area['osm_id']}")
         x, y = shift_coords(area["x"], area["y"])
         if len(x) < 3:
             if args.verbose: print("Too few coordinates, ignoring area:", x, y, area)
@@ -395,6 +397,36 @@ for highway in features["highways"]:
             a[yy, xx, 0] = mean - height
         a[yy, xx, 1] = surface_id
         #print(f'SETTING SURFACE to {surface_id} on {yy} x {xx}')
+        if layer >= 0:
+            # remove anything above the surface (buildings, randomly added grass)
+            a[yy, xx, 2] = 0
+            a[yy, xx, 3] = 0
+
+
+for railway in features["railways"]:
+    x_coords, y_coords = shift_coords(railway["x"], railway["y"])
+    surface = railway["surface"]
+    surface_id = SURFACES[surface][0]
+    layer = railway.get("layer", 0)
+    height = -layer*3 if layer < 0 else 0
+    for i in range(0, len(x_coords)-1):
+        x1, y1 = x_coords[i], y_coords[i]
+        x2, y2 = x_coords[i+1], y_coords[i+1]
+        xx, yy = skimage.draw.line(x1, y1, x2, y2)
+        positions = set()
+        for x, y in zip(xx, yy):
+            positions.update((
+                            (x, y+1),
+                (x-1, y),   (x, y  )
+            ))
+        if height != 0:
+            mean = a[yy, xx, 0].mean()
+            try:
+                assert 0 <= mean - height <= 255
+            except:
+                a[yy, xx, 0] = 0
+            a[yy, xx, 0] = mean - height
+        a[yy, xx, 1] = surface_id
         if layer >= 0:
             # remove anything above the surface (buildings, randomly added grass)
             a[yy, xx, 2] = 0

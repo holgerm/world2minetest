@@ -11,6 +11,8 @@ import sys
 import unicodedata
 from pyproj import CRS, Transformer
 
+VERSION = "2025-03-28-01"
+
 query_template = """[bbox: {}, {}, {}, {}]
 [out:json]
 [timeout:25]
@@ -55,10 +57,10 @@ load_mod_skinsdb = true
 load_mod_building_blocks = true
 load_mod_font_api = true
 load_mod_display_api = true
-load_mod_signs_api = true
+load_mod_signs_api = false
 load_mod_basic_materials = true
-load_mod_signs_road = true
-load_mod_boards = true
+load_mod_signs_road = false
+load_mod_boards = false
 load_mod_unified_inventory = true
 load_mod_edutest_chatcommands = true
 load_mod_edutest = true
@@ -179,7 +181,8 @@ def prepare_query_file():
 				sys.exit(f"While trying to open the query file '{query_path}' this exception was thrown: {exc}")
 
 		import re
-		match = re.search("\s*\[\s*bbox:\s*(\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*)\s*\]\s*", query_string)
+		e = re.compile(r'\s*\[\s*bbox:\s*(\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*\s*,\s*\d*\.?\d*)\s*\]\s*')
+		match = e.search(query_string)
 		args.area = match.group(1)
 	
 	if args.area:
@@ -346,6 +349,7 @@ if os.path.exists(log_file):
 call_string=""
 for arg in sys.argv:
 	call_string += str(arg) + " "
+log("Starting w2mt.py in version " + VERSION)
 log(call_string)
 
 # check mandatory options:

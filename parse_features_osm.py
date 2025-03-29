@@ -261,6 +261,7 @@ outer_areas = []
 inner_empty_areas = [] # aka holes
 areas = [] # normal areas made up from ways
 highways = []
+railways = []
 waterways = []
 buildings = []
 barriers = []
@@ -306,6 +307,12 @@ for e in data["elements"]:
         elif "highway" in tags:
             highways.append(e)
             continue
+        elif "railway" in tags:
+            if tags['railway'] in { "rail", "light_rail", "subway", "tram"}:
+                if "tunnel" in tags and tags['tunnel'] == "yes":
+                    continue 
+                railways.append(e)
+            continue
         elif "waterway" in tags:
             if tags['waterway'] in { "ditch", "drain", "stream"}:
                 waterways.append(e)
@@ -334,6 +341,7 @@ res_areas = {
 res_buildings = []
 res_decorations = defaultdict(list)
 res_highways = []
+res_railways = []
 res_waterways = []
 
 ############# PHASE 2: ##############
@@ -380,12 +388,9 @@ for area in areas:
     x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
     update_min_max(x_coords, y_coords)
     res_areas[level].append({"x": x_coords, "y": y_coords, "surface": surface, "osm_id": area["id"]}) # TODO add holes (inner elements)
-    print(f"Added res_area #{area['id']} surface: {surface}, level: {level}")
 
 print("Processing BUILDINGS...")
 for building in buildings:
-    if building['id'] == "1607046":
-        print(f"Building from relation: 1607046 in buildings.")
     x_coords, y_coords = node_ids_to_node_positions(building["nodes"])
     if len(x_coords) < 2:
         print_element(f"Ignored, only {len(x_coords)} nodes:", building)
@@ -445,6 +450,27 @@ for waterway in waterways:
     res_waterways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "osm_id": waterway["id"], "type": tags["waterway"]})
 
 
+print("Processing RAILWAYS...")
+rnumber = 0
+for railway in railways:
+    tags = railway["tags"]
+
+    if "railway" in tags:
+        surface = "rail"
+
+    layer = tags.get("layer", 0)
+    try:
+        layer = int(layer)
+    except ValueError:
+        layer = 0
+
+    x_coords, y_coords = node_ids_to_node_positions(railway["nodes"])
+    update_min_max(x_coords, y_coords)
+    res_railways.append({"x": x_coords, "y": y_coords, "surface": surface, "layer": layer, "osm_id": railway["id"], "type": tags["railway"]})
+    rnumber = rnumber + 1
+print (f"Added {rnumber}RAILs")
+
+
 print("Processing HIGHWAYS...")
 for highway in highways:
     tags = highway["tags"]
@@ -455,7 +481,6 @@ for highway in highways:
         surface = tags["surface"]
     else:
         surface = "highway"
-        print_element("Default highway:", highway)
 
     layer = tags.get("layer", 0)
     try:
@@ -516,5 +541,6 @@ json.dump({
     "buildings": res_buildings,
     "decorations": res_decorations,
     "highways": res_highways,
+    "railways": res_railways,
     "waterways": res_waterways
 }, args.output, indent=2)
