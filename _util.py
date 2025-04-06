@@ -1,13 +1,6 @@
 import numpy as np
 
 
-# def to_bytes(x: int, length: int) -> bytes:
-#     x = [None, np.uint8, np.uint16, None, np.uint32][length](x)
-#     # func copied from https://github.com/Gael-de-Sailly/geo-mapgen/blob/4bacbe902e7c0283a24ee3efa35c283ad592e81c/database.py#L34
-#     res = x.newbyteorder("<").tobytes()
-#     assert len(res) == length
-#     return res
-
 def to_bytes(x: int, length: int) -> bytes:
     dtype = [None, np.uint8, np.uint16, None, np.uint32][length]
     val = dtype(x)
@@ -135,6 +128,7 @@ def is_area_relation(relation):
 
 tag_dict_building = {
     "building": { }, # any building will be accepted
+    "railway": { "platform", },
 }
 
 building_tags = tag_dict_building.keys()
@@ -143,7 +137,7 @@ def is_building_relation(relation):
     try:
         tags = relation["tags"]
     except:
-        return false
+        return False
         
     for tag_name, tag_value in tags.items():
         if tag_name in building_tags:

@@ -8,6 +8,7 @@ from _util import SURFACES, DECORATIONS
 
 import sys
 
+print("START: parse_features_osm.py")
 
 parser = argparse.ArgumentParser(description="Parse OSM data")
 parser.add_argument("file", type=argparse.FileType("r", encoding="utf-8"), help="GeoJSON file with OSM data")
@@ -43,9 +44,11 @@ def node_ids_to_node_positions(node_ids):
     x_coords = []
     y_coords = []
     for node_id in node_ids:
-        x, y = node_id_to_blockpos[node_id]
-        x_coords.append(x)
-        y_coords.append(y)
+        if node_id in node_id_to_blockpos:
+            x, y = node_id_to_blockpos[node_id]
+            x_coords.append(x)
+            y_coords.append(y)
+        # Ignore nodes that are not in the dictionary (maybe out of area but in way or relation)
     return x_coords, y_coords
 
 
@@ -153,6 +156,9 @@ def building_height(tags):
     if "tower:type" in tags:
         if tags["tower:type"] in ["bell_tower"]:
             return 27
+    if "railway" in tags:
+        if tags["railway"] in ["platform"]:
+            return 1
     return 2
 
 
@@ -183,21 +189,13 @@ def split_relation_in_areas_and_holes(relation, list_for_outer_areas, list_for_i
         if member["type"] == "way":
             if rel_has_only_outer_ways(relation):
                 area_collection = list_of_areas
-                if member['ref'] == 59683400:
-                    sys.stderr.write("INNER 59683400 used as AREA.")
             elif role == "inner":
                 if is_area_relation(member):
-                    if member['ref'] == 59683400:
-                        sys.stderr.write("INNER 59683400 LEFT OUT.")
                     continue # leave inner areas out when they are areas in their own right: they will be taken care of later
                 else:
                     area_collection = list_for_inner_areas # an inner empty area
-                    if member['ref'] == 59683400:
-                        sys.stderr.write("INNER 59683400 used as INNER.")
             else: 
                 area_collection = list_for_outer_areas
-                if member['ref'] == 59683400:
-                    sys.stderr.write("INNER 59683400 used as OUTER.")
 
             way = find_element(member.get('ref'))
             try:
@@ -207,32 +205,32 @@ def split_relation_in_areas_and_holes(relation, list_for_outer_areas, list_for_i
 
             nodesCount = len(myNodes)
             if len(areaNodes) == 0:
-                print(f"xxx #0 Start ({nodesCount})")
+#                print(f"xxx #0 Start ({nodesCount})")
                 areaNodes = myNodes
             elif myNodes[-1] == areaNodes[0]: 
                 # new way should sit in front of collected area
                 myNodes.pop(-1)
                 myNodes.extend(areaNodes)
                 areaNodes = myNodes
-                print(f"xxx #1 Prepend ({nodesCount} => {len(areaNodes)})")
+#               print(f"xxx #1 Prepend ({nodesCount} => {len(areaNodes)})")
             elif areaNodes[0] == myNodes[0]: 
                 # new way has same head as collected area, hence we reverse it and prepend it
                 reverseNodes = myNodes[len(myNodes):0:-1] # gets all but the first in reverse order
                 reverseNodes.extend(areaNodes)
                 areaNodes = reverseNodes
-                print(f"xxx #2 Prepend reversed ({nodesCount}) => {len(areaNodes)}")
+#                print(f"xxx #2 Prepend reversed ({nodesCount}) => {len(areaNodes)}")
             elif areaNodes[-1] == myNodes[0]:
                 # new way joins after collected area
                 areaNodes.pop(-1)
                 areaNodes.extend(myNodes)
-                print(f"xxx #3 Extend ({nodesCount}) => {len(areaNodes)}")
+#                print(f"xxx #3 Extend ({nodesCount}) => {len(areaNodes)}")
             elif areaNodes[-1] == myNodes[-1]:
                 # new way has same tail as collected area, hence we reverse it and extend it at end
                 reverseNodes = myNodes[len(myNodes)-1::-1] # gets all but the last in reverse order
                 areaNodes.extend(reverseNodes)
-                print(f"xxx #4 Extend reversed ({nodesCount}) => {len(areaNodes)}")
+#                print(f"xxx #4 Extend reversed ({nodesCount}) => {len(areaNodes)}")
             else:
-                print(f"xxx WARNING: way {way['id']} does not fit in relation {relation['id']}, hence we ignore it.")
+                print(f"WARNING: way {way['id']} does not fit in relation {relation['id']}, hence we ignore it.")
 
             # check if area is complete, i.e. path of nodes is closed:
             if role == "outer":
@@ -245,11 +243,11 @@ def split_relation_in_areas_and_holes(relation, list_for_outer_areas, list_for_i
                     "nodes": areaNodes,
                     "tags": areaTags,
                 })
-                print(f"xxx Relation {relation['id']}.{role}#{areaNr} COMPLETE and added to our areas with #{len(areaNodes)} nodes")
+#                print(f"xxx Relation {relation['id']}.{role}#{areaNr} COMPLETE and added to our areas with #{len(areaNodes)} nodes")
                 areaNodes = []
                 areaNr += 1
-            else:
-                print(f"xxx Relation {relation['id']} has #{len(areaNodes)} nodes but is still incomplete, hence we keep collecting parts ...")
+#            else:
+#                print(f"xxx Relation {relation['id']} has #{len(areaNodes)} nodes but is still incomplete, hence we keep collecting parts ...")
 
     return
 
@@ -382,7 +380,7 @@ for area in areas:
     surface, level = get_surface(area)
 
     if surface is None:
-        print_element("Ignored, could not determine surface:", area)
+        print_element("Ignored, could not determine surface: ", area)
         continue
 
     x_coords, y_coords = node_ids_to_node_positions(area["nodes"])
@@ -544,3 +542,5 @@ json.dump({
     "railways": res_railways,
     "waterways": res_waterways
 }, args.output, indent=2)
+
+print("END: parse_features_osm.py")
