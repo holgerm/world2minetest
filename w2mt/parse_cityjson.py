@@ -6,7 +6,7 @@ import raster_geometry as rg
 from cjio import cityjson
 from tqdm import tqdm
 
-from _util import to_bytes
+from w2mt._util import to_bytes
 
 
 parser = argparse.ArgumentParser(description="Parse CityJSON .json files and create a buildings file for generate_map.py")

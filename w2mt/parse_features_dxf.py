@@ -6,7 +6,7 @@ from collections import defaultdict
 import numpy as np
 import ezdxf
 
-from _util import SURFACES, DECORATIONS
+from w2mt._util import SURFACES, DECORATIONS
 
 parser = argparse.ArgumentParser(description="Parse SKH1000 .dxf files and generate JSON data containing features")
 parser.add_argument("files", metavar="file", type=str, nargs="+", help=".dxf files to process")

@@ -5,127 +5,8 @@ import re
 import sys
 #import yaml
 
-#print(f"SYS:MOULES: {sys.modules}")
-#print("SYS:MOULES:" + yaml.dump(sys.modules, allow_unicode=True, default_flow_style=False))
-
 import unicodedata
 from pyproj import CRS, Transformer
-
-VERSION = "2025-03-28-01"
-
-query_template = """[bbox: {}, {}, {}, {}]
-[out:json]
-[timeout:25]
-;
-(
-	way;
-	node;
-	relation;
-);
-out body;
->;
-out skel qt;"""
-
-world_mt_template = """enable_damage = false
-creative_mode = true
-mod_storage_backend = sqlite3
-auth_backend = sqlite3
-backend = {}
-player_backend = sqlite3
-gameid = {}
-world_name = {}
-server_announce = false
-
-load_mod_travelnet = true
-
-load_mod_worldeditadditions_commands = true
-load_mod_worldeditadditions = true
-load_mod_worldedit = true
-load_mod_we_undo = true
-load_mod_worldedit_gui = true
-load_mod_worldedit_shortcommands = true
-load_mod_worldeditadditions_farwand = true
-load_mod_worldedit_commands = true
-load_mod_worldeditadditions_core = true
-load_mod_worldedit_brush = true
-
-load_mod_nature_classic = true
-load_mod_skybox = true
-load_mod_beautiflowers = true
-load_mod_unifieddyes = true
-load_mod_skinsdb = true
-load_mod_building_blocks = true
-load_mod_font_api = true
-load_mod_display_api = true
-load_mod_signs_api = false
-load_mod_basic_materials = true
-load_mod_signs_road = false
-load_mod_boards = false
-load_mod_unified_inventory = true
-load_mod_edutest_chatcommands = true
-load_mod_edutest = true
-
-load_mod_homedecor_windows_and_treatments = true
-load_mod_homedecor_trash_cans = true
-load_mod_homedecor_roofing = true
-load_mod_homedecor_pictures_and_paintings = true
-load_mod_homedecor_office = true
-load_mod_homedecor_laundry = true
-load_mod_homedecor_gastronomy = true
-load_mod_homedecor_furniture = true
-load_mod_homedecor_fences = true
-load_mod_homedecor_kitchen = true
-load_mod_homedecor_electronics = true
-load_mod_homedecor_electrical = true
-load_mod_homedecor_doors_and_gates = true
-load_mod_homedecor_furniture_medieval = true
-load_mod_homedecor_common = true
-load_mod_homedecor_cobweb = true
-load_mod_homedecor_climate_control = true
-load_mod_homedecor_books = true
-load_mod_homedecor_bedroom = true
-load_mod_homedecor_bathroom = true
-load_mod_homedecor_tables = true
-load_mod_homedecor_seating = true
-load_mod_homedecor_lighting = true
-load_mod_homedecor_clocks = true
-load_mod_homedecor_exterior = true
-load_mod_homedecor_3d_extras = true
-load_mod_homedecor_wardrobe = true
-load_mod_homedecor_misc = true
-load_mod_homedecor_foyer = true
-
-load_mod_morelights = true
-load_mod_morebricks = true
-load_mod_moreblocks = true
-load_mod_pickblock = true
-load_mod_colordcement = true
-load_mod_colored_concrete = true
-
-load_mod_mesecons = true
-load_mod_mesecons_delayer = true
-load_mod_mesecons_materials = true
-load_mod_mesecons_lightstone = true
-load_mod_mesecons_button = true
-load_mod_mesecons_commandblock = true
-load_mod_mesecons_detector = true
-load_mod_mesecons_doors = true
-load_mod_mesecons_noteblock = true
-load_mod_mesecons_lamp = true
-load_mod_mesecons_microcontroller = true
-load_mod_mesecons_mvps = true
-load_mod_mesecons_torch = true
-load_mod_mesecons_switch = true
-load_mod_mesecons_wires = true
-load_mod_mesecons_pressureplates = true
-load_mod_mesecons_receiver = true
-load_mod_mesecons_pistons = true
-load_mod_mesecons_gamecompat = true
-load_mod_mesecons_walllever = true
-load_mod_mesecons_extrawires = true
-
-load_mod_world2minetest = true"""
-
 
 def get_args():
 	parser = argparse.ArgumentParser(description="Create a minetest world based on openstreetmap data.")
@@ -236,38 +117,93 @@ def perform_query():
 	else:
 		log("... done")
 
+# def extract_features_from_osm_json():
+# 	cmd = f'python3 parse_features_osm.py {osm_path} -o {feature_path} >> {log_file}'
+# 	log(f"Extracting features using this command: '{cmd}' ...")
+# 	error = os.system(cmd)
+# 	if error:
+# 		log("... error!")
+# 	else:
+# 		log("... done")
+		
+import subprocess
+
 def extract_features_from_osm_json():
-	cmd = f'python3 parse_features_osm.py {osm_path} -o {feature_path} >> {log_file}'
-	log(f"Extracting features using this command: '{cmd}' ...")
-	error = os.system(cmd)
-	if error:
-		log("... error!")
-	else:
+	log(f"Extracting features from {osm_path} to {feature_path} ...")
+
+	# Baue das Kommando als Liste
+	cmd = [
+		"python3", "parse_features_osm.py",
+		osm_path,
+		"-o", feature_path
+	]
+
+	# Rufe das Kommando auf und schreibe stdout + stderr ins Logfile
+	try:
+		with open(log_file, "a") as logf:
+			result = subprocess.run(cmd, stdout=logf, stderr=logf, check=True)
 		log("... done")
+	except subprocess.CalledProcessError as e:
+		log(f"... error! Exit code: {e.returncode}")
+		log(f"❌ Fehler beim Ausführen von: {' '.join(cmd)}")
+
+# def generate_map_from_features(minX, minY, maxX, maxY):
+# 	map_output_dir = os.path.join(project_path, "world2minetest")
+# 	if not os.path.isdir(map_output_dir):
+# 		os.makedirs(map_output_dir)
+# 	if os.path.isdir(map_output_dir):
+# 		log(f"Project w2mt mod dir '{map_output_dir}‘ created")
+# 	else:
+# 		log(f"Unable to create project w2mt mod dir '{map_output_dir}‘! Check rights!")
+# 		sys.exit("Unable to create missing project w2mt mod dir.")
+# 	map_output_path = os.path.join(map_output_dir, "map.dat")
+# 	cmd = f'python3 generate_map.py --features {feature_path} --output {map_output_path}'
+# 	if not args.unrestricted:
+# 		cmd += f' --minx {minX} --maxx {maxX} --miny {minY} --maxy {maxY}'
+# 	if args.minimap:
+# 		cmd += ' --minimap'
+# 	cmd += f' >> {log_file}'
+# 	log(f"Generating map using this command: '{cmd}' ...")
+# 	error = os.system(cmd)
+# 	if error:
+# 		log("... error!")
+# 	else:
+# 		log("... done")
 
 def generate_map_from_features(minX, minY, maxX, maxY):
 	map_output_dir = os.path.join(project_path, "world2minetest")
 	if not os.path.isdir(map_output_dir):
 		os.makedirs(map_output_dir)
 	if os.path.isdir(map_output_dir):
-		log(f"Project w2mt mod dir '{map_output_dir}‘ created")
+		log(f"Project w2mt mod dir '{map_output_dir}' created")
 	else:
-		log(f"Unable to create project w2mt mod dir '{map_output_dir}‘! Check rights!")
+		log(f"Unable to create project w2mt mod dir '{map_output_dir}'! Check rights!")
 		sys.exit("Unable to create missing project w2mt mod dir.")
+
 	map_output_path = os.path.join(map_output_dir, "map.dat")
-	cmd = f'python3 generate_map.py --features {feature_path} --output {map_output_path}'
+
+	# Baue Kommando als Liste (ohne Shell!)
+	cmd = [
+		"python3", "generate_map.py",
+		"--features", feature_path,
+		"--output", map_output_path
+	]
+
 	if not args.unrestricted:
-		cmd += f' --minx {minX} --maxx {maxX} --miny {minY} --maxy {maxY}'
+		cmd += ["--minx", str(minX), "--maxx", str(maxX), "--miny", str(minY), "--maxy", str(maxY)]
 	if args.minimap:
-		cmd += ' --minimap'
-	cmd += f' >> {log_file}'
-	log(f"Generating map using this command: '{cmd}' ...")
-	error = os.system(cmd)
-	if error:
+		cmd.append("--minimap")
+
+	print(f"Generating map using this command: {' '.join(cmd)} ...")
+
+	# Rufe subprocess ohne Shell auf und leite Output ins Logfile
+	with open(log_file, "a") as logf:
+		result = subprocess.run(cmd, stdout=logf, stderr=logf)
+
+	if result.returncode != 0:
 		log("... error!")
 	else:
 		log("... done")
-
 
 def create_mod():
 	# check runtime mods dir:
@@ -339,56 +275,191 @@ def start_world():
 		
 
 ######### SCRIPT EXECUTION STARTS HERE: ##############
+		
+def main():
 
-args = get_args()
+	global VERSION
+	VERSION = "2025-03-28-01"
 
-# first log starts with the call to this script with all arguments as given:
-log_file = "w2mt.log"
-if os.path.exists(log_file):
-	 os.remove(log_file)
-call_string=""
-for arg in sys.argv:
-	call_string += str(arg) + " "
-log("Starting w2mt.py in version " + VERSION)
-log(call_string)
+	global query_template
+	query_template = """[bbox: {}, {}, {}, {}]
+	[out:json]
+	[timeout:25]
+	;
+	(
+		way;
+		node;
+		relation;
+	);
+	out body;
+	>;
+	out skel qt;"""
 
-# check mandatory options:
-if not args.project:
-	sys.exit("Projectname is mandatory, use -p or --project followed by projectname.")
-else:
-	args.project = slugify(args.project)
+	global world_mt_template
+	world_mt_template = """enable_damage = false
+	creative_mode = true
+	mod_storage_backend = sqlite3
+	auth_backend = sqlite3
+	backend = {}
+	player_backend = sqlite3
+	gameid = {}
+	world_name = {}
+	server_announce = false
 
-# setup worldname:
-if not args.worldname:
-	args.worldname = args.project
+	load_mod_travelnet = true
 
-# setup paths:
-if not args.minetest_dir:
-	if os.environ["MINETEST_GAME_PATH"]:
-		args.minetest_dir = os.environ["MINETEST_GAME_PATH"]
+	load_mod_worldeditadditions_commands = true
+	load_mod_worldeditadditions = true
+	load_mod_worldedit = true
+	load_mod_we_undo = true
+	load_mod_worldedit_gui = true
+	load_mod_worldedit_shortcommands = true
+	load_mod_worldeditadditions_farwand = true
+	load_mod_worldedit_commands = true
+	load_mod_worldeditadditions_core = true
+	load_mod_worldedit_brush = true
+
+	load_mod_nature_classic = true
+	load_mod_skybox = true
+	load_mod_beautiflowers = true
+	load_mod_unifieddyes = true
+	load_mod_skinsdb = true
+	load_mod_building_blocks = true
+	load_mod_font_api = true
+	load_mod_display_api = true
+	load_mod_signs_api = false
+	load_mod_basic_materials = true
+	load_mod_signs_road = false
+	load_mod_boards = false
+	load_mod_unified_inventory = true
+	load_mod_edutest_chatcommands = true
+	load_mod_edutest = true
+
+	load_mod_homedecor_windows_and_treatments = true
+	load_mod_homedecor_trash_cans = true
+	load_mod_homedecor_roofing = true
+	load_mod_homedecor_pictures_and_paintings = true
+	load_mod_homedecor_office = true
+	load_mod_homedecor_laundry = true
+	load_mod_homedecor_gastronomy = true
+	load_mod_homedecor_furniture = true
+	load_mod_homedecor_fences = true
+	load_mod_homedecor_kitchen = true
+	load_mod_homedecor_electronics = true
+	load_mod_homedecor_electrical = true
+	load_mod_homedecor_doors_and_gates = true
+	load_mod_homedecor_furniture_medieval = true
+	load_mod_homedecor_common = true
+	load_mod_homedecor_cobweb = true
+	load_mod_homedecor_climate_control = true
+	load_mod_homedecor_books = true
+	load_mod_homedecor_bedroom = true
+	load_mod_homedecor_bathroom = true
+	load_mod_homedecor_tables = true
+	load_mod_homedecor_seating = true
+	load_mod_homedecor_lighting = true
+	load_mod_homedecor_clocks = true
+	load_mod_homedecor_exterior = true
+	load_mod_homedecor_3d_extras = true
+	load_mod_homedecor_wardrobe = true
+	load_mod_homedecor_misc = true
+	load_mod_homedecor_foyer = true
+
+	load_mod_morelights = true
+	load_mod_morebricks = true
+	load_mod_moreblocks = true
+	load_mod_pickblock = true
+	load_mod_colordcement = true
+	load_mod_colored_concrete = true
+
+	load_mod_mesecons = true
+	load_mod_mesecons_delayer = true
+	load_mod_mesecons_materials = true
+	load_mod_mesecons_lightstone = true
+	load_mod_mesecons_button = true
+	load_mod_mesecons_commandblock = true
+	load_mod_mesecons_detector = true
+	load_mod_mesecons_doors = true
+	load_mod_mesecons_noteblock = true
+	load_mod_mesecons_lamp = true
+	load_mod_mesecons_microcontroller = true
+	load_mod_mesecons_mvps = true
+	load_mod_mesecons_torch = true
+	load_mod_mesecons_switch = true
+	load_mod_mesecons_wires = true
+	load_mod_mesecons_pressureplates = true
+	load_mod_mesecons_receiver = true
+	load_mod_mesecons_pistons = true
+	load_mod_mesecons_gamecompat = true
+	load_mod_mesecons_walllever = true
+	load_mod_mesecons_extrawires = true
+
+	load_mod_world2minetest = true"""
+
+	global args
+	args = get_args()
+
+	# first log starts with the call to this script with all arguments as given:
+	global log_file
+	log_file = "w2mt.log"
+	if os.path.exists(log_file):
+		os.remove(log_file)
+	call_string=""
+	for arg in sys.argv:
+		call_string += str(arg) + " "
+	log("Starting w2mt.py in version " + VERSION)
+	log(call_string)
+
+	# check mandatory options:
+	if not args.project:
+		sys.exit("Projectname is mandatory, use -p or --project followed by projectname.")
 	else:
-		args.minetest_dir = os.path.join(os.getcwd(), 'copy_content_to_minetest_dir')
-		log("Neither environment variable MINETEST_GAME_PATH is set nor argument -d is given. Hence we create a local temporary directory in replacement.")
-w2mt_mod_path = os.path.join(args.minetest_dir, "mods", "world2minetest")
-project_path = os.path.join(args.minetest_dir, "worlds", args.project)
-query_file = "query.osm";
-query_path = os.path.join(project_path, query_file)
-osm_path = os.path.join(project_path, "osm.json")
-feature_file = "features_osm.json"
-feature_path = os.path.join(project_path, feature_file)
+		args.project = slugify(args.project)
 
-check_project_dir()
-minX, minY, maxX, maxY = prepare_query_file()
-if not args.reuse_query:
-	perform_query()
-extract_features_from_osm_json()
-generate_map_from_features(minX, minY, maxX, maxY)
-if os.environ["MINETEST_GAME_PATH"]:
-	create_mod()
-	copy_mod_in_project_dir()
-	define_world_for_project()
-else:
-	log("Environment variable MINETEST_GAME_PATH not set. In order to manage w2mt mod and worlds you need to set it to the minetest home dir which should contain 'mods' and 'worlds' folders.")
+	# setup worldname:
+	if not args.worldname:
+		args.worldname = args.project
 
-if args.start:
-	start_world()
+	# setup paths:
+	if not args.minetest_dir:
+		if os.environ["MINETEST_GAME_PATH"]:
+			args.minetest_dir = os.environ["MINETEST_GAME_PATH"]
+		else:
+			args.minetest_dir = os.path.join(os.getcwd(), 'copy_content_to_minetest_dir')
+			log("Neither environment variable MINETEST_GAME_PATH is set nor argument -d is given. Hence we create a local temporary directory in replacement.")
+	global w2mt_mod_path
+	w2mt_mod_path = os.path.join(args.minetest_dir, "mods", "world2minetest")
+
+	global project_path
+	project_path = os.path.join(args.minetest_dir, "worlds", args.project)
+	query_file = "query.osm";
+	global query_path
+	query_path = os.path.join(project_path, query_file)
+
+	global osm_path
+	osm_path = os.path.join(project_path, "osm.json")
+	feature_file = "features_osm.json"
+	global feature_path
+	feature_path = os.path.join(project_path, feature_file)
+
+	check_project_dir()
+	global minX, minY, maxX, maxY
+	minX, minY, maxX, maxY = prepare_query_file()
+	if not args.reuse_query:
+		perform_query()
+	extract_features_from_osm_json()
+	generate_map_from_features(minX, minY, maxX, maxY)
+	if "MINETEST_GAME_PATH" in os.environ:
+		create_mod()
+		copy_mod_in_project_dir()
+		define_world_for_project()
+	else:
+		log("Environment variable MINETEST_GAME_PATH not set. In order to manage w2mt mod and worlds you need to set it to the minetest home dir which should contain 'mods' and 'worlds' folders.")
+
+	if args.start:
+		start_world()
+
+
+
+if __name__ == "__main__":
+    main()

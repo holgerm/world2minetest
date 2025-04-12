@@ -1,5 +1,12 @@
 world2minetest/map*.dat
 world2minetest/layer*.png
+
+# Alles in 'worlds/' ignorieren ...
+worlds/*
+
+# ... außer die Ordnerstruktur selbst
+!worlds/.gitkeep
+
 .vscode/
 _/
 

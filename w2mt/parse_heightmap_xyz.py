@@ -5,7 +5,7 @@ import zlib
 import numpy as np
 from scipy.ndimage import median_filter
 
-from _util import to_bytes
+from w2mt._util import to_bytes
 
 parser = argparse.ArgumentParser(description="Parse DGM1 'XYZ ASCII' files and generate a heightmap")
 parser.add_argument("files", metavar="file", type=argparse.FileType("r", encoding="utf-8"), nargs="+", help=".xyz files to process")
